@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adaptive Persuasion System</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <h1>Adaptive Persuasion System</h1>
+            <div class="header-controls">
+                <div id="connectionStatus" class="connection-status" style="display: none;">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Checking...</span>
+                </div>
+                <button id="setupBtn" class="btn btn-secondary">Setup Scenario</button>
+                <div class="mode-toggle-container">
+                    <span class="mode-label">Mode:</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="modeToggle">
+                        <span class="toggle-slider">
+                            <span class="toggle-label-left">Regular</span>
+                            <span class="toggle-label-right">Adaptive</span>
+                        </span>
+                    </label>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Left: Conversation Panel -->
+            <div class="conversation-panel">
+                <div class="conversation-header">
+                    <h2>Conversation</h2>
+                    <button id="resetBtn" class="btn btn-small">Reset</button>
+                </div>
+                <div id="chatMessages" class="chat-messages">
+                    <!-- Messages will be inserted here -->
+                </div>
+                <div class="chat-input-container">
+                    <input 
+                        type="text" 
+                        id="messageInput" 
+                        class="chat-input" 
+                        placeholder="Type your message..."
+                        disabled
+                    >
+                    <button id="sendBtn" class="btn btn-primary" disabled>Send</button>
+                </div>
+            </div>
+
+            <!-- Right: Metrics Panel -->
+            <div class="metrics-panel">
+                <h2>Metrics Dashboard</h2>
+                <div id="metricsContent" class="metrics-content">
+                    <div class="metrics-placeholder">
+                        <p>Start a conversation to see metrics</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scenario Setup Modal -->
+    <div id="setupModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Setup Campaign Scenario</h2>
+                <button class="modal-close" id="closeModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="orgName">Organization Name</label>
+                    <input type="text" id="orgName" value="Children's Education Fund" placeholder="Organization name">
+                </div>
+                <div class="form-group">
+                    <label for="cause">Cause</label>
+                    <input type="text" id="cause" value="providing education to underprivileged children" placeholder="What is the cause?">
+                </div>
+                <div class="form-group">
+                    <label for="amounts">Donation Amounts</label>
+                    <input type="text" id="amounts" value="200, 500, 1000" placeholder="e.g., 200, 500, 1000">
+                </div>
+                <div class="form-group">
+                    <label for="impact">Impact Description</label>
+                    <input type="text" id="impact" value="₹200 provides school supplies for 5 children for a month" placeholder="Describe the impact">
+                </div>
+                <div class="form-actions">
+                    <button id="saveScenario" class="btn btn-primary">Save & Start</button>
+                    <button id="cancelSetup" class="btn btn-secondary">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
