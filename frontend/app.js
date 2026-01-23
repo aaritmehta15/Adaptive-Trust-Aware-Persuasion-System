@@ -1,6 +1,11 @@
 // Frontend Application Logic
 
-const API_BASE = 'http://localhost:8000';
+// Use environment variable or default to localhost
+// For deployment: Set this to your Render URL
+const API_BASE = window.DEPLOYED_API_URL || 'http://localhost:8000';
+
+// DEPLOYMENT: Uncomment and update this line with your Render URL
+// const API_BASE = 'https://your-app-name.onrender.com';
 
 let currentSessionId = null;
 let currentMode = 'C3'; // 'C1' for regular, 'C3' for adaptive
@@ -29,7 +34,7 @@ const connectionStatus = document.getElementById('connectionStatus');
 document.addEventListener('DOMContentLoaded', () => {
     // Set initial mode (Adaptive = checked)
     modeToggle.checked = true;
-    
+
     // Event Listeners
     modeToggle.addEventListener('change', handleModeChange);
     setupBtn.addEventListener('click', () => setupModal.classList.add('show'));
@@ -44,14 +49,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     resetBtn.addEventListener('click', handleReset);
-    
+
     // Close modal on outside click
     setupModal.addEventListener('click', (e) => {
         if (e.target === setupModal) {
             setupModal.classList.remove('show');
         }
     });
-    
+
     // Check backend connection first
     updateConnectionStatus('checking');
     checkBackendConnection().then(connected => {
@@ -64,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showConnectionError();
         }
     });
-    
+
     // Update mode label on page load
     updateModeLabel();
 });
@@ -81,7 +86,7 @@ async function checkBackendConnection() {
         const timeoutPromise = new Promise((_, reject) => {
             setTimeout(() => reject(new Error('Connection timeout')), 5000);
         });
-        
+
         // Try health endpoint first, fallback to root
         const endpoints = ['/health', '/'];
         for (const endpoint of endpoints) {
@@ -90,7 +95,7 @@ async function checkBackendConnection() {
                     method: 'GET',
                     headers: { 'Content-Type': 'application/json' }
                 });
-                
+
                 const response = await Promise.race([fetchPromise, timeoutPromise]);
                 if (response && response.ok) {
                     return true;
@@ -109,13 +114,13 @@ async function checkBackendConnection() {
 
 function updateConnectionStatus(status) {
     if (!connectionStatus) return;
-    
+
     connectionStatus.style.display = 'flex';
     connectionStatus.className = 'connection-status';
-    
+
     const statusText = connectionStatus.querySelector('.status-text');
-    
-    switch(status) {
+
+    switch (status) {
         case 'checking':
             connectionStatus.classList.add('checking');
             statusText.textContent = 'Checking...';
@@ -181,12 +186,12 @@ async function initializeScenario() {
                 impact: donationContext.impact
             })
         });
-        
+
         if (!response.ok) {
             const errorText = await response.text();
             throw new Error(`Failed to setup scenario: ${errorText}`);
         }
-        
+
         // Create session
         await createSession();
     } catch (error) {
@@ -211,26 +216,26 @@ async function createSession() {
                 donation_context: donationContext
             })
         });
-        
+
         if (!response.ok) {
             const errorText = await response.text();
             throw new Error(`Failed to create session: ${errorText}`);
         }
-        
+
         const data = await response.json();
         currentSessionId = data.session_id;
-        
+
         // Show opening message
         addMessage('agent', data.opening_message);
-        
+
         // Enable input
         messageInput.disabled = false;
         sendBtn.disabled = false;
         messageInput.focus();
-        
+
         // Update metrics
         updateMetrics();
-        
+
         // Start periodic connection check
         startConnectionMonitoring();
     } catch (error) {
@@ -252,7 +257,7 @@ function startConnectionMonitoring() {
     if (connectionMonitorInterval) {
         clearInterval(connectionMonitorInterval);
     }
-    
+
     // Check connection every 30 seconds
     connectionMonitorInterval = setInterval(async () => {
         const connected = await checkBackendConnection();
@@ -266,11 +271,11 @@ function startConnectionMonitoring() {
 
 async function handleModeChange() {
     const newMode = modeToggle.checked ? 'C3' : 'C1';
-    
+
     if (newMode === currentMode) return;
-    
+
     currentMode = newMode;
-    
+
     // Reset conversation when switching modes
     if (currentSessionId) {
         // Clear chat and create new session with new mode
@@ -283,13 +288,13 @@ async function handleModeChange() {
 async function handleSendMessage() {
     const message = messageInput.value.trim();
     if (!message || !currentSessionId) return;
-    
+
     // Add user message to chat
     addMessage('user', message);
     messageInput.value = '';
     messageInput.disabled = true;
     sendBtn.disabled = true;
-    
+
     try {
         const response = await fetch(`${API_BASE}/api/session/message`, {
             method: 'POST',
@@ -299,17 +304,17 @@ async function handleSendMessage() {
                 message: message
             })
         });
-        
+
         if (!response.ok) throw new Error('Failed to send message');
-        
+
         const data = await response.json();
-        
+
         // Add agent response
         addMessage('agent', data.agent_msg);
-        
+
         // Update metrics
         updateMetricsDisplay(data.metrics);
-        
+
         // Check if conversation ended
         if (data.stop) {
             messageInput.disabled = true;
@@ -335,25 +340,25 @@ async function handleSendMessage() {
 
 async function handleReset() {
     if (!currentSessionId) return;
-    
+
     try {
         const response = await fetch(`${API_BASE}/api/session/${currentSessionId}/reset`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         });
-        
+
         if (!response.ok) throw new Error('Failed to reset session');
-        
+
         // Clear chat
         chatMessages.innerHTML = '';
-        
+
         // Show opening message
         const data = await response.json();
         addMessage('agent', data.opening_message);
-        
+
         // Reset metrics
         metricsContent.innerHTML = '<div class="metrics-placeholder"><p>Start a conversation to see metrics</p></div>';
-        
+
         // Enable input
         messageInput.disabled = false;
         sendBtn.disabled = false;
@@ -372,9 +377,9 @@ async function handleScenarioSave() {
         amounts: document.getElementById('amounts').value || "200, 500, 1000",
         impact: document.getElementById('impact').value || "₹200 provides school supplies for 5 children for a month"
     };
-    
+
     setupModal.classList.remove('show');
-    
+
     // Reset and create new session with new context
     if (currentSessionId) {
         await handleReset();
@@ -386,30 +391,30 @@ async function handleScenarioSave() {
 function addMessage(sender, text) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${sender}`;
-    
+
     const label = document.createElement('div');
     label.className = 'message-label';
     label.textContent = sender === 'user' ? 'You' : 'Agent';
-    
+
     const bubble = document.createElement('div');
     bubble.className = 'message-bubble';
     bubble.textContent = text;
-    
+
     messageDiv.appendChild(label);
     messageDiv.appendChild(bubble);
     chatMessages.appendChild(messageDiv);
-    
+
     // Scroll to bottom
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
 async function updateMetrics() {
     if (!currentSessionId) return;
-    
+
     try {
         const response = await fetch(`${API_BASE}/api/session/${currentSessionId}/metrics`);
         if (!response.ok) return;
-        
+
         const data = await response.json();
         updateMetricsDisplay(data);
     } catch (error) {
@@ -419,10 +424,10 @@ async function updateMetrics() {
 
 function updateMetricsDisplay(metrics) {
     if (!metrics) return;
-    
+
     const beliefColor = metrics.belief > 0.6 ? 'positive' : (metrics.belief > 0.3 ? 'warning' : 'danger');
     const trustColor = metrics.trust > 0.7 ? 'positive' : (metrics.trust > 0.5 ? 'warning' : 'danger');
-    
+
     metricsContent.innerHTML = `
         <div class="metric-card">
             <h3>Donation Probability</h3>
@@ -475,8 +480,8 @@ function updateMetricsDisplay(metrics) {
             <h3>Strategy Weights</h3>
             <div class="strategy-weights">
                 ${Object.entries(metrics.strategy_weights || {})
-                    .sort((a, b) => b[1] - a[1])
-                    .map(([strategy, weight]) => `
+            .sort((a, b) => b[1] - a[1])
+            .map(([strategy, weight]) => `
                         <div class="strategy-item">
                             <div class="strategy-name">${strategy}</div>
                             <div class="strategy-bar-container">
