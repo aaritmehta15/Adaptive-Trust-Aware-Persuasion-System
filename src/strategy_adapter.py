@@ -11,14 +11,33 @@ class StrategyAdapter:
     # Hard allowlist for recovery mode (PDF-aligned)
     RECOVERY_ALLOWED = {'Empathy', 'Transparency'}
 
-    def __init__(self):
+    def __init__(self, use_static=False):
         n = len(Config.STRATEGIES)
-        self.weights = {s: 1.0/n for s in Config.STRATEGIES}
+        if use_static:
+            # C1: Give it basic rotation capability (fair but not smart)
+            self.weights = {s: 1.0/n for s in Config.STRATEGIES}
+            self.rotation_counter = 0
+        else:
+            # C2/C3: Original adaptive behavior
+            self.weights = {s: 1.0/n for s in Config.STRATEGIES}
         self.history = {s: [1.0/n] for s in Config.STRATEGIES}
         self.count = {s: 0 for s in Config.STRATEGIES}
 
     def select(self, in_recovery: bool) -> str:
-        # -------- HARD TRUST CONSTRAINT --------
+        # C1 mode: Simple random choice among fixed strategies (fair but non-adaptive)
+        if hasattr(self, 'rotation_counter'):
+            allowed_strategies = [
+                "Empathy",
+                "Impact",
+                "SocialProof",
+                "Transparency",
+                "EthicalUrgency"
+            ]
+            chosen = np.random.choice(allowed_strategies)
+            self.count[chosen] += 1
+            return chosen
+
+        # C2/C3 mode: Original adaptive logic
         if in_recovery:
             available = {
                 s: self.weights[s]
@@ -27,12 +46,10 @@ class StrategyAdapter:
             }
         else:
             available = self.weights.copy()
-        # --------------------------------------
 
         strats = list(available.keys())
         wts = list(available.values())
 
-        # Safety fallback (should never happen, but defensive)
         if not strats:
             strats = ['Empathy']
             wts = [1.0]
@@ -70,14 +87,22 @@ class StrategyAdapter:
             )
 
         if rejection_info['trust_concern']:
+            # When trust concern is expressed, heavily penalize current strategy
             self.weights[strategy] = max(
                 Config.MIN_STRATEGY_WEIGHT,
-                self.weights[strategy] * 0.7
+                self.weights[strategy] * 0.5  # Stronger penalty
             )
+            # Strongly boost Transparency - it's the key to recovery
             self.weights['Transparency'] = min(
                 1.0,
-                self.weights['Transparency'] * 1.3
+                self.weights['Transparency'] * 1.5  # Stronger boost
             )
+            # Also boost Empathy slightly
+            if 'Empathy' in self.weights:
+                self.weights['Empathy'] = min(
+                    1.0,
+                    self.weights['Empathy'] * 1.2
+                )
 
         # Renormalize
         total = sum(self.weights.values())

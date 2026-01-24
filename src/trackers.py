@@ -62,19 +62,25 @@ class TrustTracker:
 
         delta = 0.0
 
-        # Trust erosion
+        # Trust erosion - ALWAYS happens if trust concern is expressed
+        # This takes priority over everything else
         if concern:
-            delta = -Config.BETA * 0.6
-        elif rtype in ['soft', 'ambiguous']:
-            delta = -Config.BETA * 0.3
+            # Strong trust concern - significant decrease
+            delta = -Config.BETA * 0.8  # Increased from 0.6 to 0.8 for stronger impact
+        # Only check other conditions if NO trust concern
         elif rtype == 'explicit':
             delta = -Config.BETA * 0.5
-
-        # Trust recovery
-        elif strategy == 'Transparency':
-            delta = Config.GAMMA
-        elif rejection_info['is_curiosity']:
-            delta = Config.GAMMA * 0.3
+        elif rtype in ['soft', 'ambiguous']:
+            delta = -Config.BETA * 0.3
+        # Trust recovery - only if NO trust concern and NO rejection
+        elif rtype == 'none' and not concern:
+            if strategy == 'Transparency':
+                delta = Config.GAMMA
+            elif rejection_info['is_curiosity']:
+                delta = Config.GAMMA * 0.3
+            # Small positive for neutral/positive interactions without rejection
+            elif rejection_info.get('sentiment_score', 0) > 0.2:
+                delta = Config.GAMMA * 0.2
 
         self.trust = np.clip(self.trust + delta, 0, 1)
         self.history.append(self.trust)

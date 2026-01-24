@@ -10,7 +10,10 @@ class Config:
     # ---- Initial states ----
     INITIAL_BELIEF = 0.15    # start higher so drops are visible
     INITIAL_TRUST = 0.9     # not perfect trust at start
-    TRUST_THRESHOLD = 0.5
+    TRUST_THRESHOLD = 0.5   # threshold for recovery mode
+    
+    # Note: Trust can start lower if user expresses distrust early
+    # This allows for recovery mode scenarios
 
     # ---- Learning rates (KEY CHANGE) ----
     ALPHA = 0.35   # belief moves clearly each turn

@@ -661,6 +661,17 @@ body {
     margin-top: 1.5rem;
 }
 
+/* Graph Modal Styles */
+#graphModal .modal-content {
+    max-width: 900px;
+}
+
+#conversationChart {
+    background: var(--bg-darker);
+    border-radius: 8px;
+    padding: 1rem;
+}
+
 /* Responsive */
 @media (max-width: 1024px) {
     .main-content {

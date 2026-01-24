@@ -151,6 +151,9 @@ async def process_message(data: MessageRequest):
         
         # Include history for frontend
         result["history"] = dm.history
+        # Include belief/trust history for graph
+        result["metrics"]["belief_history"] = [round(b, 3) for b in dm.belief.history]
+        result["metrics"]["trust_history"] = [round(t, 3) for t in dm.trust.history]
         
         return result
     except Exception as e:
@@ -191,8 +194,8 @@ async def get_metrics(session_id: str):
                 k: round(v, 3) for k, v in dm.strategy.weights.items()
             },
             "consec_reject": dm.guard.consec_reject,
-            "belief_history": dm.belief.history,
-            "trust_history": dm.trust.history,
+            "belief_history": [round(b, 3) for b in dm.belief.history],
+            "trust_history": [round(t, 3) for t in dm.trust.history],
             "active": dm.active,
             "outcome": dm.outcome
         }

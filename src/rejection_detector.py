@@ -33,7 +33,11 @@ class RejectionDetector:
     TRUST_PATTERNS = [
         r'\b(pushy|aggressive|pressure|uncomfortable|sketchy|scam|fraud)\b',
         r'\b(suspicious|don\'t trust|seems fake|sounds fake)\b',
-        r'\b(why are you|what\'s your motive|prove it)\b'
+        r'\b(why are you|what\'s your motive|prove it)\b',
+        r'\b(i do not trust|i don\'t trust|i cannot trust|i can\'t trust)\b',
+        r'\b(not trustworthy|untrustworthy|distrust|mistrust)\b',
+        r'\b(fake|fraudulent|dishonest|deceptive)\b',
+        r'\b(lying|lie|lies|untruthful)\b'
     ]
 
     CURIOSITY_PATTERNS = [

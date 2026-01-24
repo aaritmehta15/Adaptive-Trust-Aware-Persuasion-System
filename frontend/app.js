@@ -320,6 +320,8 @@ async function handleSendMessage() {
             messageInput.disabled = true;
             sendBtn.disabled = true;
             showNotification('Conversation ended: ' + (data.reason || 'Session completed'));
+            // Add graph button when conversation ends
+            addGraphButton();
         } else {
             messageInput.disabled = false;
             sendBtn.disabled = false;
@@ -425,6 +427,19 @@ async function updateMetrics() {
 function updateMetricsDisplay(metrics) {
     if (!metrics) return;
 
+    // Hide metrics panel for C1 (Regular) mode
+    const metricsPanel = document.querySelector('.metrics-panel');
+    if (currentMode === 'C1') {
+        if (metricsPanel) {
+            metricsPanel.style.display = 'none';
+        }
+        return;
+    } else {
+        if (metricsPanel) {
+            metricsPanel.style.display = 'flex';
+        }
+    }
+
     const beliefColor = metrics.belief > 0.6 ? 'positive' : (metrics.belief > 0.3 ? 'warning' : 'danger');
     const trustColor = metrics.trust > 0.7 ? 'positive' : (metrics.trust > 0.5 ? 'warning' : 'danger');
 
@@ -503,4 +518,142 @@ function showError(message) {
 function showNotification(message) {
     // Simple notification - can be enhanced
     console.log('Notification:', message);
+}
+
+function addGraphButton() {
+    // Check if button already exists
+    if (document.getElementById('showGraphBtn')) return;
+
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.cssText = 'text-align: center; padding: 1rem; margin-top: 1rem;';
+    
+    const graphButton = document.createElement('button');
+    graphButton.id = 'showGraphBtn';
+    graphButton.className = 'btn btn-primary';
+    graphButton.textContent = 'View Conversation Graph';
+    graphButton.onclick = showConversationGraph;
+    
+    buttonContainer.appendChild(graphButton);
+    chatMessages.appendChild(buttonContainer);
+}
+
+async function showConversationGraph() {
+    if (!currentSessionId) return;
+
+    try {
+        const response = await fetch(`${API_BASE}/api/session/${currentSessionId}/metrics`);
+        if (!response.ok) {
+            showError('Failed to fetch graph data');
+            return;
+        }
+
+        const data = await response.json();
+        
+        // Create modal for graph
+        const modal = document.createElement('div');
+        modal.className = 'modal show';
+        modal.id = 'graphModal';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 800px;">
+                <div class="modal-header">
+                    <h2>Conversation Analytics</h2>
+                    <button class="modal-close" onclick="document.getElementById('graphModal').remove()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <canvas id="conversationChart" style="max-height: 400px;"></canvas>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        // Load Chart.js if not already loaded
+        if (typeof Chart === 'undefined') {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+            script.onload = () => renderChart(data);
+            document.head.appendChild(script);
+        } else {
+            renderChart(data);
+        }
+
+        // Close modal on outside click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
+    } catch (error) {
+        console.error('Graph error:', error);
+        showError('Failed to load graph: ' + error.message);
+    }
+}
+
+function renderChart(data) {
+    const ctx = document.getElementById('conversationChart');
+    if (!ctx) return;
+
+    const beliefHistory = data.belief_history || [];
+    const trustHistory = data.trust_history || [];
+    const turns = beliefHistory.length;
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: Array.from({ length: turns }, (_, i) => `Turn ${i}`),
+            datasets: [
+                {
+                    label: 'Donation Probability',
+                    data: beliefHistory.map(v => (v * 100).toFixed(1)),
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    tension: 0.4,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Trust Score',
+                    data: trustHistory.map(v => (v * 100).toFixed(1)),
+                    borderColor: '#4f46e5',
+                    backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                    tension: 0.4,
+                    yAxisID: 'y'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    labels: {
+                        color: '#f1f5f9'
+                    }
+                },
+                title: {
+                    display: true,
+                    text: 'Trust Score and Donation Probability Over Time',
+                    color: '#f1f5f9'
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#cbd5e1' },
+                    grid: { color: '#475569' }
+                },
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    min: 0,
+                    max: 100,
+                    ticks: { 
+                        color: '#cbd5e1',
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    },
+                    grid: { color: '#475569' }
+                }
+            }
+        }
+    });
 }

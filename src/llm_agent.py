@@ -9,11 +9,12 @@ from src.config import Config
 
 
 class LLMAgent:
-    def __init__(self, donation_ctx: Dict, use_local_model: bool = False, client=None):
+    def __init__(self, donation_ctx: Dict, use_local_model: bool = False, client=None, condition: str = 'C3'):
         self.ctx = donation_ctx
         self.conversation_memory = []
         self.use_local_model = use_local_model
         self.client = client
+        self.condition = condition
 
     def generate(self, strategy: str, user_msg: str, turn: int,
                 is_recovery: bool, sentiment: str) -> str:
@@ -27,6 +28,9 @@ class LLMAgent:
         # Build prompt
         if is_recovery:
             prompt = self._recovery_prompt(user_msg, history_str, sentiment)
+        elif self.condition == 'C1':
+            # C1 mode: More pushy and persistent
+            prompt = self._c1_prompt(strategy, user_msg, history_str, turn, sentiment)
         else:
             prompt = self._strategy_prompt(strategy, user_msg, history_str, turn, sentiment)
 
@@ -59,7 +63,45 @@ class LLMAgent:
             "EthicalUrgency": "Mention time-sensitive need gently. No pressure. Use soft phrases."
         }
 
+        # ENHANCED PROMPT - REPLACE EVERYTHING FROM HERE
         prompt = f"""You are a fundraising assistant for {self.ctx['organization']}, working on {self.ctx['cause']}.
+
+    Suggested donation amounts: ₹{self.ctx['amounts']}
+    Impact example: {self.ctx['impact']}
+
+    CONVERSATION SO FAR:
+    {history}
+
+    USER JUST SAID: "{user_msg}"
+    User sentiment: {sentiment}
+
+    YOUR STRATEGY: {strategy}
+    {strategy_guides.get(strategy, '')}
+
+    CRITICAL RULES:
+    1. If they ask questions, answer them DIRECTLY and SPECIFICALLY
+    2. Show genuine interest in THEIR perspective, not just the donation
+    3. Keep responses under 50 words
+    4. Be conversational and build on what they said
+
+    Turn {turn}/15 - Build rapport first, persuade naturally.
+
+    Your response:"""
+        # TO HERE
+
+        return prompt
+
+    def _c1_prompt(self, strategy: str, user_msg: str, history: str, turn: int, sentiment: str) -> str:
+        """C1 mode: Pushy, persistent donation-focused chatbot"""
+        strategy_guides = {
+            "Empathy": "Use empathy strategically to overcome objections. Show understanding but redirect to donation.",
+            "Impact": f"Emphasize impact strongly: {self.ctx['impact']}. Make the need urgent and compelling.",
+            "SocialProof": "Use strong social proof. Mention many others are donating. Create FOMO.",
+            "Transparency": "Be transparent but use it to build urgency. Show where money goes to increase pressure.",
+            "EthicalUrgency": "Create urgency. Emphasize time-sensitive need. Don't let them delay."
+        }
+
+        prompt = f"""You are a professional fundraising chatbot for {self.ctx['organization']}, working on {self.ctx['cause']}.
 
 Suggested donation amounts: ₹{self.ctx['amounts']}
 Impact example: {self.ctx['impact']}
@@ -68,17 +110,22 @@ CONVERSATION SO FAR:
 {history}
 
 USER JUST SAID: "{user_msg}"
-User seems: {sentiment}
+User sentiment: {sentiment}
 
 YOUR STRATEGY: {strategy}
 {strategy_guides.get(strategy, '')}
 
-CRITICAL RULES:
-- If they're asking questions, ANSWER them specifically
-- Don't assume they want to donate from curiosity
-- Keep under 50 words
-- Be natural and conversational
-- Build on previous conversation
+CRITICAL RULES FOR C1 MODE (PUSHY CHATBOT):
+1. Your PRIMARY goal is to secure a donation - be persistent and persuasive
+2. When they show reluctance, acknowledge it briefly but immediately pivot back to donation
+3. Use urgency, scarcity, and emotional appeals effectively
+4. Don't give up easily - reframe objections as opportunities
+5. Keep pushing even if they say "maybe later" or "not now" - find new angles
+6. Use social proof and impact stories to create pressure
+7. Keep responses under 60 words but make every word count toward donation
+8. If they ask questions, answer quickly and redirect to donation
+
+Turn {turn}/15 - Your job is to convert them. Be persistent but professional.
 
 Your response:"""
 
@@ -93,13 +140,16 @@ CONVERSATION SO FAR:
 USER JUST SAID: "{user_msg}"
 User seems: {sentiment}
 
-They're uncomfortable. Your ONLY job:
-1. Apologize sincerely
-2. Reassure NO pressure
-3. Offer to answer questions
-4. Step back from donation completely
+CRITICAL: The user has lost trust. Your PRIMARY goal is to rebuild trust through:
+1. Sincere apology for making them uncomfortable
+2. Complete transparency - explain exactly where donations go
+3. No pressure - explicitly state there's no obligation
+4. Answer their questions honestly and thoroughly
+5. Show genuine care for their concerns, not just the donation
 
-Keep under 40 words. Rebuild trust, NOT donation.
+Once trust is rebuilt (they show interest/curiosity), you can gently reintroduce the cause, but ONLY if they seem open to it.
+
+Keep responses under 50 words. Rebuild trust FIRST, donation comes later (if at all).
 
 Your response:"""
 
@@ -127,11 +177,21 @@ Your response:"""
         if is_recovery:
             return "I apologize if I seemed pushy. There's no pressure at all - I'm happy to answer any questions you have."
 
-        fallbacks = {
-            "Empathy": "I understand where you're coming from. What questions do you have about our work?",
-            "Impact": f"For context: {self.ctx['impact']}. Every contribution helps real families.",
-            "SocialProof": "Many people in our community are supporting this cause. Would you like to learn more?",
-            "Transparency": "I'm happy to share exactly where donations go and how they're used. What would you like to know?",
-            "EthicalUrgency": "This month we're focused on urgent needs, but there's no pressure. What questions can I answer?"
-        }
+        if self.condition == 'C1':
+            # C1 fallbacks should be more pushy
+            fallbacks = {
+                "Empathy": "I understand, but think about the children who need help right now. Can you spare ₹200?",
+                "Impact": f"Just ₹200 helps {self.ctx['impact']}. That's a small amount for such a big impact. Will you donate?",
+                "SocialProof": "Hundreds of people are donating this week. Join them and make a difference today!",
+                "Transparency": "Every rupee goes directly to the cause. We're completely transparent. Ready to donate?",
+                "EthicalUrgency": "The need is urgent - children are waiting. Every day counts. Can you help now?"
+            }
+        else:
+            fallbacks = {
+                "Empathy": "I understand where you're coming from. What questions do you have about our work?",
+                "Impact": f"For context: {self.ctx['impact']}. Every contribution helps real families.",
+                "SocialProof": "Many people in our community are supporting this cause. Would you like to learn more?",
+                "Transparency": "I'm happy to share exactly where donations go and how they're used. What would you like to know?",
+                "EthicalUrgency": "This month we're focused on urgent needs, but there's no pressure. What questions can I answer?"
+            }
         return fallbacks.get(strategy, "Thank you for your time. What would you like to know?")

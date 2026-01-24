@@ -21,12 +21,12 @@ class DialogueManager:
         self.session_id = f"sess_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         self.ctx = donation_ctx
 
-        self.agent = LLMAgent(donation_ctx, use_local_model, client)
+        self.agent = LLMAgent(donation_ctx, use_local_model, client, condition)
         self.detector = RejectionDetector()
         self.belief = BeliefTracker()
         self.trust = TrustTracker()
-        self.strategy = StrategyAdapter()
-        self.guard = Guardrails()
+        self.strategy = StrategyAdapter(use_static=(condition == 'C1'))
+        self.guard = Guardrails(condition)
 
         self.history = []
         self.turn = 0
