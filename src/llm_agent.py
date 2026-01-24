@@ -173,6 +173,34 @@ Your response:"""
         )
         return response.choices[0].message.content.strip()
 
+    def generate_off_topic_response(self, user_msg: str) -> str:
+        """Generate response when user message is off-topic"""
+        prompt = f"""You are a fundraising assistant for {self.ctx['organization']}, working on {self.ctx['cause']}.
+
+The user just said: "{user_msg}"
+
+This message seems unrelated to our donation conversation. Your job:
+1. Politely acknowledge their message
+2. Gently redirect back to the donation topic
+3. Be friendly and conversational
+4. Don't be pushy or dismissive
+
+Keep response under 40 words. Be warm but redirect to the cause.
+
+Your response:"""
+
+        try:
+            if self.use_local_model:
+                response = self._generate_local(prompt)
+            else:
+                response = self._generate_api(prompt)
+        except Exception as e:
+            print(f"Generation error: {e}")
+            # Fallback response
+            response = f"I appreciate your message, but I'm here to talk about our work with {self.ctx['cause']}. Would you like to learn more about how you can help?"
+
+        return response
+
     def _fallback(self, strategy: str, is_recovery: bool) -> str:
         if is_recovery:
             return "I apologize if I seemed pushy. There's no pressure at all - I'm happy to answer any questions you have."

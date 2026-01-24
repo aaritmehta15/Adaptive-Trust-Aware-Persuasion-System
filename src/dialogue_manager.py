@@ -8,6 +8,7 @@ import json
 import os
 
 from src.rejection_detector import RejectionDetector
+from src.off_topic_detector import OffTopicDetector
 from src.trackers import BeliefTracker, TrustTracker
 from src.strategy_adapter import StrategyAdapter
 from src.guardrails import Guardrails
@@ -23,6 +24,7 @@ class DialogueManager:
 
         self.agent = LLMAgent(donation_ctx, use_local_model, client, condition)
         self.detector = RejectionDetector()
+        self.off_topic_detector = OffTopicDetector(donation_ctx)
         self.belief = BeliefTracker()
         self.trust = TrustTracker()
         self.strategy = StrategyAdapter(use_static=(condition == 'C1'))
@@ -49,6 +51,36 @@ class DialogueManager:
 
     def process(self, user_msg: str) -> Dict:
         self.turn += 1
+
+        # ---- Check for off-topic FIRST (before any updates) ----
+        off_topic_info = self.off_topic_detector.detect(user_msg)
+        
+        if off_topic_info['is_off_topic']:
+            # Off-topic detected - skip trust/belief updates
+            # Generate off-topic response
+            agent_resp = self.agent.generate_off_topic_response(user_msg)
+            
+            # Log without updating metrics
+            self.history.append(
+                {'turn': self.turn, 'speaker': 'user', 'msg': user_msg, 'info': {'off_topic': True}}
+            )
+            self.history.append(
+                {'turn': self.turn, 'speaker': 'agent', 'msg': agent_resp, 'strategy': 'OffTopic'}
+            )
+            
+            # Return with current metrics (no changes)
+            return {
+                'agent_msg': agent_resp,
+                'metrics': self._metrics(
+                    {'rejection_type': 'none', 'is_acceptance': False, 'is_curiosity': False, 
+                     'trust_concern': False, 'sentiment_label': 'neutral', 'sentiment_score': 0.0,
+                     'is_polite_exit': False},
+                    0.0,  # delta_p = 0 (no change)
+                    0.0   # delta_t = 0 (no change)
+                ),
+                'stop': False,
+                'reason': None
+            }
 
         # ---- Analyze ----
         rej_info = self.detector.detect(user_msg)
