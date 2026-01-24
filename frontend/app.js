@@ -8,7 +8,7 @@ const API_BASE = window.DEPLOYED_API_URL || 'http://localhost:8000';
 // const API_BASE = 'https://your-app-name.onrender.com';
 
 let currentSessionId = null;
-let currentMode = 'C3'; // 'C1' for regular, 'C3' for adaptive
+let currentMode = 'C3'; // 'C1' for regular, 'C3' for ATLAS (Adaptive Trust Limited Action System)
 let donationContext = {
     organization: "Children's Education Fund",
     cause: "providing education to underprivileged children",
@@ -32,7 +32,7 @@ const connectionStatus = document.getElementById('connectionStatus');
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
-    // Set initial mode (Adaptive = checked)
+    // Set initial mode (ATLAS = checked)
     modeToggle.checked = true;
 
     // Event Listeners
@@ -76,7 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function updateModeLabel() {
     // This function can be used to update UI based on current mode
-    const modeText = currentMode === 'C3' ? 'Adaptive' : 'Regular';
+    const modeText = currentMode === 'C3' ? 'ATLAS' : 'Regular';
     console.log(`Current mode: ${modeText}`);
 }
 
@@ -281,6 +281,11 @@ async function handleModeChange() {
         // Clear chat and create new session with new mode
         chatMessages.innerHTML = '';
         metricsContent.innerHTML = '<div class="metrics-placeholder"><p>Start a conversation to see metrics</p></div>';
+        // Update metrics title based on mode
+        const metricsTitle = document.querySelector('.metrics-panel h2');
+        if (metricsTitle) {
+            metricsTitle.textContent = currentMode === 'C3' ? 'ATLAS Metrics Dashboard' : 'Metrics Dashboard';
+        }
         await createSession();
     }
 }
@@ -360,6 +365,13 @@ async function handleReset() {
 
         // Reset metrics
         metricsContent.innerHTML = '<div class="metrics-placeholder"><p>Start a conversation to see metrics</p></div>';
+        // Reset metrics title
+        const metricsTitle = document.querySelector('.metrics-panel h2');
+        if (metricsTitle && currentMode === 'C3') {
+            metricsTitle.textContent = 'ATLAS Metrics Dashboard';
+        } else if (metricsTitle) {
+            metricsTitle.textContent = 'Metrics Dashboard';
+        }
 
         // Enable input
         messageInput.disabled = false;
@@ -429,6 +441,7 @@ function updateMetricsDisplay(metrics) {
 
     // Hide metrics panel for C1 (Regular) mode
     const metricsPanel = document.querySelector('.metrics-panel');
+    const metricsTitle = document.querySelector('.metrics-panel h2');
     if (currentMode === 'C1') {
         if (metricsPanel) {
             metricsPanel.style.display = 'none';
@@ -437,6 +450,10 @@ function updateMetricsDisplay(metrics) {
     } else {
         if (metricsPanel) {
             metricsPanel.style.display = 'flex';
+        }
+        // Update title to show ATLAS when in C3 mode
+        if (metricsTitle) {
+            metricsTitle.textContent = 'ATLAS Metrics Dashboard';
         }
     }
 

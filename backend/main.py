@@ -1,5 +1,5 @@
 """
-FastAPI Backend for Adaptive Persuasion System
+FastAPI Backend for ATLAS (Adaptive Trust Limited Action System)
 """
 
 import os
@@ -16,7 +16,7 @@ from src.config import Config
 
 
 # Initialize FastAPI app
-app = FastAPI(title="Adaptive Persuasion System API")
+app = FastAPI(title="ATLAS API - Adaptive Trust Limited Action System")
 
 # CORS middleware
 app.add_middleware(
@@ -51,7 +51,7 @@ def init_hf_client():
 
 # Request/Response models
 class SessionCreate(BaseModel):
-    condition: str  # 'C1' for regular chatbot, 'C3' for adaptive
+    condition: str  # 'C1' for regular chatbot, 'C3' for ATLAS (Adaptive Trust Limited Action System)
     donation_context: Dict
 
 
@@ -82,7 +82,7 @@ async def startup_event():
 async def root():
     """Health check endpoint"""
     return {
-        "message": "Adaptive Persuasion System API",
+        "message": "ATLAS API - Adaptive Trust Limited Action System",
         "status": "running",
         "version": "1.0.0"
     }
