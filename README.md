@@ -1,240 +1,210 @@
-# An Adaptive Trust-Aware Persuasion Framework for Donation-Oriented Conversational AI
+# Adaptive Trust-Aware Persuasion System
 
-## Abstract
-This project proposes a trust-aware, adaptive persuasion framework for donation-focused conversational AI systems. Rather than treating persuasion as a one-shot text generation task, the system models persuasion as a multi-turn, closed-loop decision process in which donation intent is latent, probabilistic, and dynamically updated after every user interaction. Trust is treated as a hard operational constraint that governs allowable persuasion strategies and can intentionally suppress persuasion to recover user comfort and autonomy. The framework emphasizes interpretability, ethical safeguards, and realistic implementability, making it suitable for academic research and future deployment.
+An AI-powered conversational system that persuades users to donate while explicitly preserving trust and autonomy through adaptive, multi-turn interaction.
 
----
+## 🎯 What Is This?
 
-## Core Idea
-The central idea is to design a conversational agent that persuades users to donate through adaptive, multi-turn interaction while explicitly preserving user trust and autonomy.
+This system models persuasion as a **multi-turn decision process** where:
+- **Donation intent is latent and probabilistic** - tracked as belief (0-100%)
+- **Trust is a hard constraint** - persuasion is suppressed when trust drops
+- **The system can intentionally back off** to recover user trust
+- **Strategies adapt** based on what works for each user
 
-Key principles:
-- Donation intent is latent and probabilistic
-- Persuasion effectiveness evolves over time
-- Trust is a hard constraint, not a soft signal
-- The system may intentionally reduce persuasion to recover trust
+Unlike traditional chatbots that optimize for immediate conversion, this system balances short-term donation likelihood with long-term user engagement and ethical boundaries.
 
-The system is designed as a research-grade framework that can later be extended to voice-based agents.
+## 🔬 Three Experimental Modes
 
----
+| Mode | Description | Behavior |
+|------|-------------|----------|
+| **C1** | Regular Chatbot | Pushy, persistent, ignores trust, static "Empathy" strategy |
+| **C2** | Adaptive Strategies | Learns which strategies work, no trust tracking |
+| **C3** | Full System | Trust-aware, adaptive strategies, recovery mode |
 
-## Problem Context
-In donation and fundraising scenarios, aggressive or poorly timed persuasion often backfires, leading to disengagement, distrust, and ethical concerns. Most existing conversational agents:
-- Optimize persuasion implicitly
-- Ignore long-term interaction dynamics
-- Treat trust as a side effect rather than a control variable
+**Key Innovation:** C3 enters "Recovery Mode" when trust drops below 50%, prioritizing trust rebuilding over persuasion.
 
-This project addresses these gaps by proposing a trust-constrained persuasion control system that balances short-term donation likelihood with long-term user engagement.
+## ⚡ Quick Start
 
----
+### Prerequisites
+- Python 3.8+
+- HuggingFace account with API token
 
-## High-Level System Overview
-The proposed system is a closed-loop adaptive persuasion system that operates at every dialogue turn. User responses are analyzed to update internal belief states, which then guide strategy selection and response generation under explicit trust constraints.
+### 1. Install Dependencies
 
-The interaction loop is repeated until a terminal condition is reached (donation acceptance, disengagement, or trust collapse).
+```bash
+pip install -r requirements_web.txt
+```
 
----
+### 2. Set HuggingFace Token
 
-## Persuasion as a Repeated Decision Process
-The interaction is modeled as a repeated, asymmetric decision process:
-- The agent aims to maximize the probability of donation
-- The user aims to preserve autonomy, comfort, and emotional stability
+**Windows (PowerShell):**
+```powershell
+$env:HF_TOKEN="your_huggingface_token_here"
+```
 
-The user’s true willingness to donate is not directly observable. The system therefore maintains and updates a belief state based on observed linguistic and behavioral signals. This formulation aligns with decision-making under partial observability (POMDP-style reasoning) while remaining interpretable and implementable.
+**Linux/Mac:**
+```bash
+export HF_TOKEN="your_huggingface_token_here"
+```
 
----
+### 3. Start Backend
 
-## System Architecture
-The system is composed of the following modular components:
+```bash
+python start_backend.py
+```
 
-1. User Interface (text-based chat for the prototype)
-2. User Response Analysis Module
-3. Belief State Estimator
-4. Trust Constraint Controller
-5. Strategy Selection Policy
-6. Strategy-Conditioned Language Generator
-7. Logging and Evaluation Module
+Backend runs on `http://localhost:8000`
 
-Each component is independent and replaceable, enabling incremental development and experimentation.
+### 4. Start Frontend
 
----
+```bash
+python start_frontend.py
+```
 
-## Turn-Level Pipeline
-For each dialogue turn, the system executes the following steps:
+Or open `frontend/index.html` directly in your browser.
 
-1. User Input  
-   The user provides a natural language response.
+### 5. Use the Application
 
-2. Response Analysis  
-   The system extracts interpretable signals such as:
-   - Emotional tone
-   - Engagement level
-   - Resistance or deflection cues
+1. Click "Setup Scenario" to configure campaign (optional - defaults provided)
+2. Toggle between "Regular" (C1) and "Adaptive" (C3) modes
+3. Start chatting - the agent greets you automatically
+4. Watch real-time metrics on the right panel
 
-3. Belief State Update  
-   The system incrementally updates:
-   - Estimated donation probability: P(donate | dialogue so far)
-   - Trust score
+## 📊 Key Features
 
-4. Trust Constraint Check  
-   - If trust < threshold τ: enter recovery mode  
-   - Otherwise: persuasion mode continues
+### Trust-Aware Persuasion
+- Tracks trust score in real-time (C3 only)
+- **Trust Gating:** Belief cannot increase when trust < 50%
+- **Recovery Mode:** System backs off when trust drops
 
-5. Strategy Selection  
-   The system selects a persuasion strategy that maximizes expected increase in donation probability, subject to the trust constraint.
+### Adaptive Strategy Selection
+Five persuasion strategies:
+- **Empathy** - Understanding and warmth
+- **Impact** - Concrete outcomes and numbers
+- **Social Proof** - Others are donating
+- **Transparency** - Honest about where money goes
+- **Ethical Urgency** - Time-sensitive need
 
-6. Response Generation  
-   A response is generated conditioned on the selected strategy and user state.
+Strategies adapt based on effectiveness - successful strategies get higher weight.
 
-7. Logging  
-   Belief trajectories, trust changes, and strategy usage are recorded.
+### Ethical Guardrails
+- Stops after 3 consecutive rejections
+- Respects explicit refusals immediately
+- Stops if trust drops too low (< 30%)
+- Maximum 15 turns per conversation
 
----
+### Real-Time Metrics Dashboard
+- Belief (donation probability) graph
+- Trust score graph (C3 only)
+- Strategy weights visualization
+- Rejection type and sentiment
+- Recovery mode indicator
 
-## Belief State Representation
-The belief state captures the system’s internal understanding of the user.
+## 🏗️ Project Structure
 
-### Donation Probability
-- A continuous probability P(donate | dialogue so far) ∈ [0, 1]
-- Updated after every user response
-- Represents latent donation intent
+```
+persuation-system-master/
+├── src/                    # Core logic modules
+│   ├── config.py          # Configuration parameters
+│   ├── dialogue_manager.py # Main orchestrator
+│   ├── trackers.py        # Belief & Trust tracking
+│   ├── rejection_detector.py # User response analysis
+│   ├── strategy_adapter.py # Strategy selection & adaptation
+│   ├── llm_agent.py       # Response generation
+│   └── guardrails.py      # Safety checks
+├── backend/               # FastAPI REST API
+│   └── main.py
+├── frontend/              # Web interface
+│   ├── index.html
+│   ├── styles.css
+│   └── app.js
+├── notebooks/             # Analysis & logs
+├── README.md              # This file
+├── ARCHITECTURE.md        # Technical reference
+└── RESEARCH.md           # Academic context
+```
 
-### Trust Score
-- Modeled independently of donation probability
-- Treated as a non-negotiable constraint
-- If trust falls below threshold τ:
-  - Aggressive strategies are disabled
-  - The system prioritizes trust recovery
+## 🔧 Troubleshooting
 
-### Supporting Signals
-Additional interpretable signals inform belief updates:
-- Emotional receptivity
-- Engagement level
-- Resistance indicators
+**Backend won't start:**
+- Check `HF_TOKEN` is set: `echo $env:HF_TOKEN` (PowerShell) or `echo $HF_TOKEN` (Linux/Mac)
+- Try `python start_backend_simple.py` instead
+- Ensure port 8000 is not in use
 
-These signals influence belief updates but do not directly trigger actions.
+**Frontend can't connect:**
+- Verify backend is running: open `http://localhost:8000` in browser
+- Run `python test_backend.py` to test connection
+- Check browser console (F12) for errors
 
----
+**CORS errors:**
+- Use `python start_frontend.py` instead of opening HTML directly
+- Backend CORS is configured to allow all origins
 
-## Belief Update Mechanism
-Belief updates are performed using explicit, interpretable heuristics rather than black-box models.
+## 📚 Documentation
 
-Key characteristics:
-- Focus on directional change (ΔP)
-- Conservative trust recovery
-- Transparent reasoning for every update
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Technical deep dive, code locations, calculations
+- **[RESEARCH.md](RESEARCH.md)** - Theoretical foundation, C1 vs C3 comparison, experiments
 
-This ensures debuggability and research suitability.
+## 🎓 Academic Context
 
----
+This project addresses gaps in donation-focused conversational AI:
+- Most systems optimize persuasion implicitly
+- They ignore long-term interaction dynamics
+- They treat trust as a side effect rather than a control variable
 
-## Persuasion Strategy Space
-The system operates over a predefined set of persuasion strategies, including:
-- Empathy and emotional validation
-- Informational framing
-- Social proof
-- Impact-based framing
-- Micro-commitment requests
-- Direct donation request
-- Back-off and autonomy reinforcement
-
-Strategies define persuasive intent, not surface-level wording.
-
----
-
-## Strategy Selection Policy
-At each turn, the system selects the strategy that maximizes expected ΔP(donate), subject to the trust constraint.
-
-Strategies that risk trust collapse are disallowed, even if they increase short-term donation likelihood.
-
-### Recovery Mode
-When trust drops below τ:
-- Persuasion intensity is intentionally reduced
-- Only recovery strategies are allowed
-- Short-term decreases in donation probability are accepted
-
-This introduces non-monotonic persuasion, which is both strategically and ethically justified.
-
----
-
-## Language Generation
-Once a strategy is selected, responses are generated using a language model conditioned on:
-- Selected strategy
-- User emotional state
-- Dialogue context
-
-The language model operates within strategic boundaries and does not independently decide persuasive intent.
-
----
-
-## Measuring Persuasion Progress
-Success is evaluated beyond final donation outcome by tracking:
-- Change in donation probability (ΔP) per turn
-- Trust trajectories
-- Strategy effectiveness over time
-
-This enables fine-grained evaluation and future policy optimization.
-
----
-
-## Dataset Considerations
-### Current Phase
-No large labeled dataset is required initially. The prototype relies on:
-- Heuristic scoring
-- Linguistic cues from live interaction
-- Synthetic or simulated dialogues
-
-### Future Data Collection
-Potential future datasets include:
-- Annotated donation dialogues
-- Logged interaction data from controlled experiments
-- Strategy effectiveness statistics
-
-All data usage follows ethical guidelines.
-
----
-
-## Technology Stack (Reference Implementation)
-- Programming Language: Python
-- LLM Access: Hosted or local large language models
-- Backend: FastAPI
-- Prototype UI: CLI or Streamlit
-- NLP Analysis: Prompt-based sentiment and emotion scoring
-- Logging and Visualization: JSON/CSV logs, Matplotlib
-
----
-
-## Ethical Safeguards
-The framework includes explicit safeguards:
-- Trust enforced as a hard constraint
-- Back-off and autonomy reinforcement
-- No forced escalation
-- Transparent, interpretable control logic
-
-The goal is ethical, sustainable persuasion rather than manipulation.
-
----
-
-## Novel Contributions
+**Novel Contributions:**
 - Persuasion modeled as a probability trajectory
 - Trust enforced as an operational constraint
 - Explicit recovery behavior
 - Modular, interpretable persuasion control loop
-- System-level integration of persuasion, trust, and decision-making
 
----
+## 🛠️ Technology Stack
 
-## Theoretical Foundations
-This work draws from:
-- Persuasion theory
-- Computational persuasion and dialogue systems
+- **Language:** Python 3.8+
+- **LLM:** HuggingFace Inference API (Llama 3.1 70B)
+- **Backend:** FastAPI
+- **Frontend:** HTML/CSS/JavaScript
+- **NLP:** TextBlob for sentiment analysis
+- **Visualization:** Chart.js
+
+## 📖 API Documentation
+
+Once backend is running, visit:
+- **API Docs:** `http://localhost:8000/docs`
+- **Health Check:** `http://localhost:8000/health`
+
+## 🔬 Research Use
+
+This framework is designed for:
+- Academic research on ethical persuasion
+- Studying trust dynamics in conversational AI
+- Comparing adaptive vs static persuasion strategies
+- Evaluating recovery mechanisms
+
+All interaction data is logged for analysis (see `notebooks/` folder).
+
+## 🤝 Contributing
+
+This is a research prototype. To modify:
+1. **Change parameters:** Edit `src/config.py`
+2. **Modify calculations:** Edit `src/trackers.py`
+3. **Add strategies:** Update `src/config.py` and `src/llm_agent.py`
+4. **Change UI:** Edit files in `frontend/`
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed modification guide.
+
+## 📄 License
+
+This project is for academic and research purposes.
+
+## 🙏 Acknowledgments
+
+Built on research in:
+- Persuasion theory and computational persuasion
+- Trust modeling in human-AI interaction
 - Decision-making under uncertainty (POMDP-style reasoning)
-- Trust modeling in human–AI interaction
-- Donation-focused conversational agent research
-
-The novelty lies in system-level integration rather than new psychological theory.
+- Donation-focused conversational agents
 
 ---
 
-## Conclusion
-This project presents a controlled, adaptive, trust-aware persuasion framework for donation-oriented conversational AI. By balancing persuasion effectiveness with ethical safeguards and interpretability, the system offers a research-sound and realistically implementable approach to long-term, sustainable conversational persuasion.
+**For technical details, see [ARCHITECTURE.md](ARCHITECTURE.md)**  
+**For research context, see [RESEARCH.md](RESEARCH.md)**
