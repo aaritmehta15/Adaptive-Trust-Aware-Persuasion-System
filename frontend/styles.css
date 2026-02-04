@@ -1,3 +1,27 @@
+/* Pulse animation for voice status */
+@keyframes pulse {
+    0% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.5;
+        transform: scale(1.2);
+    }
+
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.btn.active {
+    background-color: #ef4444 !important;
+    /* Red for Stop button */
+    border-color: #ef4444 !important;
+}
+
 /* Modern CSS for ATLAS (Adaptive Trust Limited Action System) */
 
 :root {
@@ -119,9 +143,12 @@ body {
 }
 
 @keyframes pulse {
-    0%, 100% {
+
+    0%,
+    100% {
         opacity: 1;
     }
+
     50% {
         opacity: 0.5;
     }
@@ -182,7 +209,7 @@ body {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-.toggle-switch input:checked + .toggle-slider:before {
+.toggle-switch input:checked+.toggle-slider:before {
     transform: translateX(96px);
 }
 
@@ -202,11 +229,11 @@ body {
     color: var(--text-secondary);
 }
 
-.toggle-switch input:checked + .toggle-slider .toggle-label-left {
+.toggle-switch input:checked+.toggle-slider .toggle-label-left {
     color: var(--text-secondary);
 }
 
-.toggle-switch input:checked + .toggle-slider .toggle-label-right {
+.toggle-switch input:checked+.toggle-slider .toggle-label-right {
     color: var(--text-primary);
 }
 
@@ -320,6 +347,7 @@ body {
         opacity: 0;
         transform: translateY(10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -597,6 +625,7 @@ body {
         opacity: 0;
         transform: translateY(-20px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -693,7 +722,7 @@ body {
     .main-content {
         flex-direction: column;
     }
-    
+
     .metrics-panel {
         width: 100%;
         max-height: 400px;

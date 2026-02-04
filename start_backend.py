@@ -8,6 +8,9 @@ import sys
 # Add current directory to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# CRITICAL: Set PYTHONPATH so spawned uvicorn processes can find 'backend' module
+os.environ["PYTHONPATH"] = os.path.dirname(os.path.abspath(__file__))
+
 if __name__ == "__main__":
     import uvicorn
     

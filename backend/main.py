@@ -3,6 +3,11 @@ FastAPI Backend for ATLAS (Adaptive Trust Limited Action System)
 """
 
 import os
+from dotenv import load_dotenv
+
+# Load env vars BEFORE imports that rely on them
+load_dotenv()
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -13,6 +18,7 @@ import uvicorn
 
 from src.dialogue_manager import DialogueManager
 from src.config import Config
+from backend.voice_bridge import init_voice_layer
 
 
 # Initialize FastAPI app
@@ -28,7 +34,9 @@ app.add_middleware(
 )
 
 # Global state
-sessions: Dict[str, DialogueManager] = {}
+# sessions: Dict[str, DialogueManager] = {}  <-- REMOVED LOCAL DICT
+from backend.session_store import sessions, add_session, get_session
+
 hf_client = None
 use_local_model = False
 
@@ -71,6 +79,10 @@ class ScenarioSetup(BaseModel):
 async def startup_event():
     try:
         init_hf_client()
+        # Initialize Voice Integration
+        print(f"DEBUG: Initializing Voice Layer. Sessions dict ID: {id(sessions)}")
+        # Pass the global store to voice layer (though it likely imports it directly now)
+        init_voice_layer(app, sessions)
         print("✓ Backend initialized successfully")
     except Exception as e:
         print(f"✗ Backend initialization failed: {e}")
@@ -112,7 +124,9 @@ async def create_session(data: SessionCreate):
         dm = DialogueManager(condition, donation_ctx, hf_client, use_local_model)
         opening = dm.start()
         
-        sessions[dm.session_id] = dm
+        # Store in global store
+        add_session(dm.session_id, dm)
+        print(f"DEBUG: Session created {dm.session_id} in Store {id(sessions)}")
         
         return {
             "session_id": dm.session_id,

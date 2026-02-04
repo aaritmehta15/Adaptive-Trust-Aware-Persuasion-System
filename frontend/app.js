@@ -224,6 +224,7 @@ async function createSession() {
 
         const data = await response.json();
         currentSessionId = data.session_id;
+        window.sessionId = currentSessionId; // Expose for Voice Client
 
         // Show opening message
         addMessage('agent', data.opening_message);
@@ -543,13 +544,13 @@ function addGraphButton() {
 
     const buttonContainer = document.createElement('div');
     buttonContainer.style.cssText = 'text-align: center; padding: 1rem; margin-top: 1rem;';
-    
+
     const graphButton = document.createElement('button');
     graphButton.id = 'showGraphBtn';
     graphButton.className = 'btn btn-primary';
     graphButton.textContent = 'View Conversation Graph';
     graphButton.onclick = showConversationGraph;
-    
+
     buttonContainer.appendChild(graphButton);
     chatMessages.appendChild(buttonContainer);
 }
@@ -565,7 +566,7 @@ async function showConversationGraph() {
         }
 
         const data = await response.json();
-        
+
         // Create modal for graph
         const modal = document.createElement('div');
         modal.className = 'modal show';
@@ -662,9 +663,9 @@ function renderChart(data) {
                     position: 'left',
                     min: 0,
                     max: 100,
-                    ticks: { 
+                    ticks: {
                         color: '#cbd5e1',
-                        callback: function(value) {
+                        callback: function (value) {
                             return value + '%';
                         }
                     },
