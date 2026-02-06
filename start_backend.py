@@ -13,7 +13,7 @@ os.environ["PYTHONPATH"] = os.path.dirname(os.path.abspath(__file__))
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     # Check for HF_TOKEN
     if not os.getenv("HF_TOKEN"):
         print("WARNING: HF_TOKEN environment variable not set!")
@@ -21,11 +21,11 @@ if __name__ == "__main__":
         print("\nWindows PowerShell:")
         print('  $env:HF_TOKEN="your_token_here"')
         print("\nWindows CMD:")
-        print('  set HF_TOKEN=your_token_here')
+        print("  set HF_TOKEN=your_token_here")
         print("\nLinux/Mac:")
         print('  export HF_TOKEN="your_token_here"')
         sys.exit(1)
-    
+
     print("=" * 60)
     print("Starting Adaptive Persuasion System Backend...")
     print("=" * 60)
@@ -34,7 +34,7 @@ if __name__ == "__main__":
     print("Health:      http://localhost:8000/health")
     print("\nPress Ctrl+C to stop the server")
     print("=" * 60 + "\n")
-    
+
     try:
         # Use import string format for reload to work properly
         uvicorn.run(
@@ -43,7 +43,7 @@ if __name__ == "__main__":
             port=8000,
             reload=True,
             reload_dirs=[os.path.dirname(os.path.abspath(__file__))],
-            log_level="info"
+            log_level="info",
         )
     except KeyboardInterrupt:
         print("\n\nServer stopped by user.")
@@ -52,5 +52,6 @@ if __name__ == "__main__":
         print("\nTry using start_backend_simple.py instead:")
         print("  python start_backend_simple.py")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
