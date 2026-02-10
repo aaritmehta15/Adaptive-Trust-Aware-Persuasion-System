@@ -13,21 +13,21 @@ class BeliefTracker:
         self.history = [self.belief]
 
     def update(self, rejection_info: Dict, trust: float) -> float:
-        rtype = rejection_info['rejection_type']
-        is_accept = rejection_info['is_acceptance']
-        is_curious = rejection_info['is_curiosity']
-        trust_concern = rejection_info['trust_concern']
-        sent = rejection_info['sentiment_score']
+        rtype = rejection_info["rejection_type"]
+        is_accept = rejection_info["is_acceptance"]
+        is_curious = rejection_info["is_curiosity"]
+        trust_concern = rejection_info["trust_concern"]
+        sent = rejection_info["sentiment_score"]
 
         if is_accept:
             effect = (1 - self.belief) * 0.9
-        elif rtype == 'explicit':
+        elif rtype == "explicit":
             effect = -0.9
         elif trust_concern:
             effect = -0.7
-        elif rtype == 'soft':
+        elif rtype == "soft":
             effect = -0.45
-        elif rtype == 'ambiguous':
+        elif rtype == "ambiguous":
             effect = -0.25
         elif is_curious:
             effect = 0.25
@@ -57,8 +57,8 @@ class TrustTracker:
         self.recovery_mode = False
 
     def update(self, rejection_info: Dict, strategy: str):
-        rtype = rejection_info['rejection_type']
-        concern = rejection_info['trust_concern']
+        rtype = rejection_info["rejection_type"]
+        concern = rejection_info["trust_concern"]
 
         delta = 0.0
 
@@ -68,18 +68,18 @@ class TrustTracker:
             # Strong trust concern - significant decrease
             delta = -Config.BETA * 0.8  # Increased from 0.6 to 0.8 for stronger impact
         # Only check other conditions if NO trust concern
-        elif rtype == 'explicit':
+        elif rtype == "explicit":
             delta = -Config.BETA * 0.5
-        elif rtype in ['soft', 'ambiguous']:
+        elif rtype in ["soft", "ambiguous"]:
             delta = -Config.BETA * 0.3
         # Trust recovery - only if NO trust concern and NO rejection
-        elif rtype == 'none' and not concern:
-            if strategy == 'Transparency':
+        elif rtype == "none" and not concern:
+            if strategy == "Transparency":
                 delta = Config.GAMMA
-            elif rejection_info['is_curiosity']:
+            elif rejection_info["is_curiosity"]:
                 delta = Config.GAMMA * 0.3
             # Small positive for neutral/positive interactions without rejection
-            elif rejection_info.get('sentiment_score', 0) > 0.2:
+            elif rejection_info.get("sentiment_score", 0) > 0.2:
                 delta = Config.GAMMA * 0.2
 
         self.trust = np.clip(self.trust + delta, 0, 1)

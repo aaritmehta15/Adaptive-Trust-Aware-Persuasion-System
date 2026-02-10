@@ -20,7 +20,6 @@ from src.dialogue_manager import DialogueManager
 from src.config import Config
 from backend.voice_bridge import init_voice_layer
 
-
 # Initialize FastAPI app
 app = FastAPI(title="ATLAS API - Adaptive Trust Limited Action System")
 
@@ -46,8 +45,10 @@ def init_hf_client():
     global hf_client, use_local_model
     HF_TOKEN = os.getenv("HF_TOKEN")
     if not HF_TOKEN:
-        raise ValueError("HF_TOKEN environment variable not set. Please set it before starting the server.")
-    
+        raise ValueError(
+            "HF_TOKEN environment variable not set. Please set it before starting the server."
+        )
+
     try:
         login(token=HF_TOKEN, add_to_git_credential=False)
         hf_client = InferenceClient(api_key=HF_TOKEN)
@@ -86,7 +87,9 @@ async def startup_event():
         print("✓ Backend initialized successfully")
     except Exception as e:
         print(f"✗ Backend initialization failed: {e}")
-        print("The server will start but may not function correctly without HuggingFace token.")
+        print(
+            "The server will start but may not function correctly without HuggingFace token."
+        )
         print("Please set HF_TOKEN environment variable and restart the server.")
 
 
@@ -96,8 +99,9 @@ async def root():
     return {
         "message": "ATLAS API - Adaptive Trust Limited Action System",
         "status": "running",
-        "version": "1.0.0"
+        "version": "1.0.0",
     }
+
 
 @app.get("/health")
 async def health():
@@ -112,26 +116,28 @@ async def create_session(data: SessionCreate):
         if hf_client is None:
             raise HTTPException(
                 status_code=503,
-                detail="Backend not fully initialized. Please check HF_TOKEN and restart the server."
+                detail="Backend not fully initialized. Please check HF_TOKEN and restart the server.",
             )
-        
+
         donation_ctx = data.donation_context
         condition = data.condition
-        
-        if condition not in ['C1', 'C3']:
-            raise HTTPException(status_code=400, detail="Condition must be 'C1' or 'C3'")
-        
+
+        if condition not in ["C1", "C3"]:
+            raise HTTPException(
+                status_code=400, detail="Condition must be 'C1' or 'C3'"
+            )
+
         dm = DialogueManager(condition, donation_ctx, hf_client, use_local_model)
         opening = dm.start()
-        
+
         # Store in global store
         add_session(dm.session_id, dm)
         print(f"DEBUG: Session created {dm.session_id} in Store {id(sessions)}")
-        
+
         return {
             "session_id": dm.session_id,
             "opening_message": opening,
-            "condition": condition
+            "condition": condition,
         }
     except HTTPException:
         raise
@@ -145,9 +151,9 @@ async def process_message(data: MessageRequest):
     try:
         if data.session_id not in sessions:
             raise HTTPException(status_code=404, detail="Session not found")
-        
+
         dm = sessions[data.session_id]
-        
+
         if not dm.active:
             return {
                 "agent_msg": dm._closing(dm.outcome or "Session ended"),
@@ -156,19 +162,19 @@ async def process_message(data: MessageRequest):
                     "belief": round(dm.belief.get(), 3),
                     "trust": round(dm.trust.get(), 3),
                     "stop": True,
-                    "reason": dm.outcome
+                    "reason": dm.outcome,
                 },
-                "stop": True
+                "stop": True,
             }
-        
+
         result = dm.process(data.message)
-        
+
         # Include history for frontend
         result["history"] = dm.history
         # Include belief/trust history for graph
         result["metrics"]["belief_history"] = [round(b, 3) for b in dm.belief.history]
         result["metrics"]["trust_history"] = [round(t, 3) for t in dm.trust.history]
-        
+
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -180,16 +186,16 @@ async def get_metrics(session_id: str):
     try:
         if session_id not in sessions:
             raise HTTPException(status_code=404, detail="Session not found")
-        
+
         dm = sessions[session_id]
-        
+
         # Get last rejection info if available
         last_rej_info = None
         if dm.history and len(dm.history) > 0:
             last_entry = dm.history[-1]
-            if last_entry.get('speaker') == 'user' and 'info' in last_entry:
-                last_rej_info = last_entry['info']
-        
+            if last_entry.get("speaker") == "user" and "info" in last_entry:
+                last_rej_info = last_entry["info"]
+
         # Create metrics in the same format as process() returns
         metrics = {
             "turn": dm.turn,
@@ -197,12 +203,30 @@ async def get_metrics(session_id: str):
             "trust": round(dm.trust.get(), 3),
             "delta_belief": 0.0,  # No delta for standalone metrics call
             "delta_trust": 0.0,
-            "rejection_type": last_rej_info.get('rejection_type', 'none') if last_rej_info else 'none',
-            "rejection_conf": round(last_rej_info.get('rejection_confidence', 0.0), 3) if last_rej_info else 0.0,
-            "sentiment": last_rej_info.get('sentiment_label', 'neutral') if last_rej_info else 'neutral',
-            "sentiment_score": round(last_rej_info.get('sentiment_score', 0.0), 3) if last_rej_info else 0.0,
-            "trust_concern": last_rej_info.get('trust_concern', False) if last_rej_info else False,
-            "is_curiosity": last_rej_info.get('is_curiosity', False) if last_rej_info else False,
+            "rejection_type": (
+                last_rej_info.get("rejection_type", "none") if last_rej_info else "none"
+            ),
+            "rejection_conf": (
+                round(last_rej_info.get("rejection_confidence", 0.0), 3)
+                if last_rej_info
+                else 0.0
+            ),
+            "sentiment": (
+                last_rej_info.get("sentiment_label", "neutral")
+                if last_rej_info
+                else "neutral"
+            ),
+            "sentiment_score": (
+                round(last_rej_info.get("sentiment_score", 0.0), 3)
+                if last_rej_info
+                else 0.0
+            ),
+            "trust_concern": (
+                last_rej_info.get("trust_concern", False) if last_rej_info else False
+            ),
+            "is_curiosity": (
+                last_rej_info.get("is_curiosity", False) if last_rej_info else False
+            ),
             "recovery_mode": dm.trust.recovery_mode,
             "strategy_weights": {
                 k: round(v, 3) for k, v in dm.strategy.weights.items()
@@ -211,9 +235,9 @@ async def get_metrics(session_id: str):
             "belief_history": [round(b, 3) for b in dm.belief.history],
             "trust_history": [round(t, 3) for t in dm.trust.history],
             "active": dm.active,
-            "outcome": dm.outcome
+            "outcome": dm.outcome,
         }
-        
+
         return metrics
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -225,25 +249,25 @@ async def reset_session(session_id: str):
     try:
         if session_id not in sessions:
             raise HTTPException(status_code=404, detail="Session not found")
-        
+
         old_dm = sessions[session_id]
         condition = old_dm.condition
         donation_ctx = old_dm.ctx
-        
+
         # Save old session before resetting
         old_dm.save()
-        
+
         # Create new session
         dm = DialogueManager(condition, donation_ctx, hf_client, use_local_model)
         dm.session_id = session_id  # Keep same ID
         opening = dm.start()
-        
+
         sessions[session_id] = dm
-        
+
         return {
             "session_id": session_id,
             "opening_message": opening,
-            "message": "Session reset"
+            "message": "Session reset",
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -255,11 +279,11 @@ async def delete_session(session_id: str):
     try:
         if session_id not in sessions:
             raise HTTPException(status_code=404, detail="Session not found")
-        
+
         dm = sessions[session_id]
         dm.save()  # Save before deleting
         del sessions[session_id]
-        
+
         return {"message": "Session deleted and saved"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -273,7 +297,7 @@ async def setup_scenario(data: ScenarioSetup):
             "organization": data.organization,
             "cause": data.cause,
             "amounts": data.amounts,
-            "impact": data.impact
+            "impact": data.impact,
         }
     }
 
