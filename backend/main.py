@@ -4,6 +4,13 @@ FastAPI Backend for ATLAS (Adaptive Trust Limited Action System)
 
 import os
 from dotenv import load_dotenv
+import sys
+
+# Add project root to sys.path to resolve 'src' and 'backend' imports
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 # Load env vars BEFORE imports that rely on them
 load_dotenv()
@@ -18,7 +25,8 @@ import uvicorn
 
 from src.dialogue_manager import DialogueManager
 from src.config import Config
-from backend.voice_bridge import init_voice_layer
+from .voice_bridge import init_voice_layer
+from src.atlas_core import AtlasCore, AtlasRequest
 
 # Initialize FastAPI app
 app = FastAPI(title="ATLAS API - Adaptive Trust Limited Action System")
@@ -34,10 +42,11 @@ app.add_middleware(
 
 # Global state
 # sessions: Dict[str, DialogueManager] = {}  <-- REMOVED LOCAL DICT
-from backend.session_store import sessions, add_session, get_session
+from .session_store import sessions, add_session, get_session
 
 hf_client = None
 use_local_model = False
+atlas_core = AtlasCore()
 
 
 # Initialize HuggingFace client
@@ -149,33 +158,13 @@ async def create_session(data: SessionCreate):
 async def process_message(data: MessageRequest):
     """Process a user message and return agent response with metrics"""
     try:
-        if data.session_id not in sessions:
-            raise HTTPException(status_code=404, detail="Session not found")
-
-        dm = sessions[data.session_id]
-
-        if not dm.active:
-            return {
-                "agent_msg": dm._closing(dm.outcome or "Session ended"),
-                "metrics": {
-                    "turn": dm.turn,
-                    "belief": round(dm.belief.get(), 3),
-                    "trust": round(dm.trust.get(), 3),
-                    "stop": True,
-                    "reason": dm.outcome,
-                },
-                "stop": True,
-            }
-
-        result = dm.process(data.message)
-
-        # Include history for frontend
-        result["history"] = dm.history
-        # Include belief/trust history for graph
-        result["metrics"]["belief_history"] = [round(b, 3) for b in dm.belief.history]
-        result["metrics"]["trust_history"] = [round(t, 3) for t in dm.trust.history]
-
+        # Delegate to Atlas Core
+        request = AtlasRequest(session_id=data.session_id, text=data.message)
+        result = atlas_core.process(request)
         return result
+    except ValueError as e:
+        # Handle session not found
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -199,15 +188,15 @@ async def get_metrics(session_id: str):
         # Create metrics in the same format as process() returns
         metrics = {
             "turn": dm.turn,
-            "belief": round(dm.belief.get(), 3),
-            "trust": round(dm.trust.get(), 3),
+            "belief": round(float(dm.belief.get()), 3),
+            "trust": round(float(dm.trust.get()), 3),
             "delta_belief": 0.0,  # No delta for standalone metrics call
             "delta_trust": 0.0,
             "rejection_type": (
                 last_rej_info.get("rejection_type", "none") if last_rej_info else "none"
             ),
             "rejection_conf": (
-                round(last_rej_info.get("rejection_confidence", 0.0), 3)
+                round(float(last_rej_info.get("rejection_confidence", 0.0)), 3)
                 if last_rej_info
                 else 0.0
             ),
@@ -217,7 +206,7 @@ async def get_metrics(session_id: str):
                 else "neutral"
             ),
             "sentiment_score": (
-                round(last_rej_info.get("sentiment_score", 0.0), 3)
+                round(float(last_rej_info.get("sentiment_score", 0.0)), 3)
                 if last_rej_info
                 else 0.0
             ),
@@ -229,11 +218,11 @@ async def get_metrics(session_id: str):
             ),
             "recovery_mode": dm.trust.recovery_mode,
             "strategy_weights": {
-                k: round(v, 3) for k, v in dm.strategy.weights.items()
+                k: round(float(v), 3) for k, v in dm.strategy.weights.items()
             },
             "consec_reject": dm.guard.consec_reject,
-            "belief_history": [round(b, 3) for b in dm.belief.history],
-            "trust_history": [round(t, 3) for t in dm.trust.history],
+            "belief_history": [round(float(b), 3) for b in dm.belief.history],
+            "trust_history": [round(float(t), 3) for t in dm.trust.history],
             "active": dm.active,
             "outcome": dm.outcome,
         }

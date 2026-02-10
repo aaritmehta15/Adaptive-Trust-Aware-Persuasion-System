@@ -13,6 +13,14 @@ from dotenv import load_dotenv
 # Ensure env vars are loaded in this process (critical for Windows spawn)
 load_dotenv()
 
+import sys
+
+# Add project root to sys.path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from google.adk.agents import Agent
 from google.adk.tools import BaseTool
@@ -22,7 +30,7 @@ from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
-from backend.session_store import sessions, list_sessions
+from .session_store import sessions, list_sessions
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -128,7 +136,7 @@ def init_voice_layer(app: FastAPI, _ignored_sessions: Dict[str, Any]):
     @app.websocket("/ws/voice/{session_id}")
     async def voice_endpoint(websocket: WebSocket, session_id: str):
         # Debugging Identity
-        from backend.session_store import sessions as store_sessions
+        from .session_store import sessions as store_sessions
 
         print(f"DEBUG: Voice Endpoint hit. Store ID: {id(store_sessions)}")
         print(
