@@ -73,6 +73,14 @@ class AudioProcessor {
                 }
             });
 
+            // Monitor track lifecycle
+            this.mediaStream.getAudioTracks().forEach(track => {
+                track.onended = (event) => {
+                    console.warn("[AudioProcessor] Audio track ended automatically!", event);
+                };
+                console.log("[AudioProcessor] Track started:", track.label, track.readyState);
+            });
+
             const source = this.audioContext.createMediaStreamSource(this.mediaStream);
             this.workletNode = new AudioWorkletNode(this.audioContext, 'recorder-processor');
 
@@ -89,21 +97,27 @@ class AudioProcessor {
             this.workletNode.connect(this.audioContext.destination); // Keep alive
 
             this.isRecording = true;
-            console.log("Audio recording started");
+            console.log("[AudioProcessor] Audio recording started");
 
         } catch (error) {
-            console.error("Error starting recording:", error);
+            console.error("[AudioProcessor] Error starting recording:", error);
             throw error;
         }
     }
 
     stopRecording() {
+        console.trace("[AudioProcessor] stopRecording called");
         if (!this.isRecording) return;
+
+        console.log("[AudioProcessor] Stopping recording routines...");
 
         this.isRecording = false;
 
         if (this.mediaStream) {
-            this.mediaStream.getTracks().forEach(track => track.stop());
+            this.mediaStream.getTracks().forEach(track => {
+                console.log("[AudioProcessor] Stopping track:", track.label);
+                track.stop();
+            });
             this.mediaStream = null;
         }
 
@@ -112,7 +126,7 @@ class AudioProcessor {
             this.workletNode = null;
         }
 
-        console.log("Audio recording stopped");
+        console.log("[AudioProcessor] Audio recording stopped completely");
     }
 
     floatTo16BitPCM(input) {

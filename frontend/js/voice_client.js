@@ -38,7 +38,7 @@ class VoiceManager {
             this.socket = new WebSocket(wsUrl);
 
             this.socket.onopen = async () => {
-                console.log("Voice Bridge Connected");
+                console.log("[VoiceClient] WebSocket Open");
                 this.updateUI(true, "Listening");
 
                 // Start Audio Capture
@@ -51,35 +51,40 @@ class VoiceManager {
             };
 
             this.socket.onmessage = async (event) => {
-                const data = JSON.parse(event.data);
+                console.log("[VoiceClient] Message received:", event.data);
+                try {
+                    const data = JSON.parse(event.data);
 
-                // Handle different event types from Gemini
-                // We mainly care about AUDIO output
+                    // Handle different event types from Gemini
+                    // We mainly care about AUDIO output
 
-                if (data.serverContent && data.serverContent.modelTurn && data.serverContent.modelTurn.parts) {
-                    for (const part of data.serverContent.modelTurn.parts) {
-                        if (part.inlineData && part.inlineData.mimeType.startsWith('audio/pcm')) {
-                            // Decode Base64 audio
-                            const binaryString = window.atob(part.inlineData.data);
-                            const len = binaryString.length;
-                            const bytes = new Uint8Array(len);
-                            for (let i = 0; i < len; i++) {
-                                bytes[i] = binaryString.charCodeAt(i);
+                    if (data.serverContent && data.serverContent.modelTurn && data.serverContent.modelTurn.parts) {
+                        for (const part of data.serverContent.modelTurn.parts) {
+                            if (part.inlineData && part.inlineData.mimeType.startsWith('audio/pcm')) {
+                                // Decode Base64 audio
+                                const binaryString = window.atob(part.inlineData.data);
+                                const len = binaryString.length;
+                                const bytes = new Uint8Array(len);
+                                for (let i = 0; i < len; i++) {
+                                    bytes[i] = binaryString.charCodeAt(i);
+                                }
+
+                                // Play Audio
+                                this.updateUI(true, "Speaking");
+                                await this.audioProcessor.playAudio(bytes.buffer);
+
+                                // Visual feedback timeout to return to "Listening"
+                                setTimeout(() => this.updateUI(true, "Listening"), 2000);
                             }
-
-                            // Play Audio
-                            this.updateUI(true, "Speaking");
-                            await this.audioProcessor.playAudio(bytes.buffer);
-
-                            // Visual feedback timeout to return to "Listening"
-                            setTimeout(() => this.updateUI(true, "Listening"), 2000);
                         }
                     }
+                } catch (e) {
+                    console.error("[VoiceClient] Error parsing message:", e);
                 }
             };
 
             this.socket.onclose = (event) => {
-                console.log("Voice Socket Closed", event);
+                console.log("[VoiceClient] socket.onclose triggered. Code:", event.code, "Reason:", event.reason, "WasClean:", event.wasClean);
                 this.stop();
                 if (event.code !== 1000 && this.retryCount < this.maxRetries) {
                     // Graceful fallback logic could go here
@@ -88,7 +93,7 @@ class VoiceManager {
             };
 
             this.socket.onerror = (error) => {
-                console.error("Voice Socket Error", error);
+                console.error("[VoiceClient] socket.onerror triggered:", error);
                 this.stop();
             };
 
@@ -100,6 +105,7 @@ class VoiceManager {
     }
 
     stop() {
+        console.trace("[VoiceClient] stop() called");
         this.isActive = false;
         this.updateUI(false);
 
@@ -108,6 +114,7 @@ class VoiceManager {
         }
 
         if (this.socket) {
+            console.log("[VoiceClient] Calling socket.close()");
             this.socket.close();
             this.socket = null;
         }

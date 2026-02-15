@@ -93,105 +93,52 @@ class AtlasVoiceAgent:
 
     async def handle_websocket(self, websocket: WebSocket, session_id: str):
         """
-        Handles the WebSocket connection and bidirectional streaming with Gemini.
+        Robust Echo Server for WebSocket Stability Testing.
+        Handles binary frames correctly and logs data flow.
         """
         await websocket.accept()
-        logger.info(f"[VOICE-AGENT] Connected session: {session_id}")
+        logger.info(f"[VOICE-AGENT-ECHO] Connected session: {session_id}")
 
-        # 1. Define the Tool specific to this session
-        atlas_tool = AtlasTool(self.atlas, session_id)
-
-        # 2. Define the Agent
-        # Instructions: Act as a voice interface. When user speaks, use the tool.
-        # Speak the result.
-        agent = Agent(
-            name="atlas_voice_agent",
-            model="gemini-2.0-flash-exp", # Or appropriate model
-            tools=[atlas_tool],
-            instruction=(
-                "You are the voice of the ATLAS persuasion system. "
-                "Your role is to listen to the user, and ALWAYS convert their speech to text "
-                "and pass it to the 'process_user_message' tool. "
-                "Wait for the tool to return the strategic response. "
-                "Then, speak the 'agent_response' from the tool output to the user EXACTLY as written. "
-                "Do not improvise or add fillers unless necessary for natural flow. "
-                "Maintain a professional, persuasive tone."
-            ),
-        )
-
-        # 3. Setup Runner
-        runner = Runner(
-            app_name="atlas-voice", 
-            agent=agent, 
-            session_service=self.session_service
-        )
-
-        # 4. Setup RunConfig
-        # We want AUDIO output (TTS) from the model
-        run_config = RunConfig(
-            streaming_mode=StreamingMode.BIDI,
-            response_modalities=["AUDIO"], 
-            input_audio_transcription=types.AudioTranscriptionConfig(),
-            output_audio_transcription=types.AudioTranscriptionConfig(),
-        )
-
-        # 5. Get/Create Session
-        flow_session = await self.session_service.get_session(
-            app_name="atlas-voice", user_id="default-user", session_id=session_id
-        )
-        if not flow_session:
-            await self.session_service.create_session(
-                app_name="atlas-voice", user_id="default-user", session_id=session_id
-            )
-
-        live_queue = LiveRequestQueue()
-
-        # 6. Stream Loop
-        async def upstream():
-            """Client -> Gemini (Audio)"""
-            try:
-                while True:
-                    msg = await websocket.receive()
-                    if "bytes" in msg:
-                        # Forward audio chunk
-                        blob = types.Blob(
-                            mime_type="audio/pcm;rate=16000", data=msg["bytes"]
-                        )
-                        live_queue.send_realtime(blob)
-                    elif "text" in msg:
-                        # Could be control messages
-                        pass
-            except WebSocketDisconnect:
-                logger.info(f"[VOICE-AGENT] Client disconnected: {session_id}")
-            except Exception as e:
-                logger.error(f"[VOICE-AGENT] Upstream error: {e}")
-            finally:
-                live_queue.close()
-
-        async def downstream():
-            """Gemini -> Client (Audio + Events)"""
-            try:
-                # runner.run_live yields events
-                async for event in runner.run_live(
-                    user_id="default-user",
-                    session_id=session_id,
-                    live_request_queue=live_queue,
-                    run_config=run_config,
-                ):
-                    # Forward event to client as JSON
-                    # This includes audio chunks in the events
-                    await websocket.send_text(
-                        event.model_dump_json(exclude_none=True, by_alias=True)
-                    )
-            except Exception as e:
-                logger.error(f"[VOICE-AGENT] Downstream error: {e}")
-                logger.error(traceback.format_exc())
-
-        # Run streams
         try:
-            await asyncio.gather(upstream(), downstream())
+            while True:
+                # Receive raw ASGI message
+                message = await websocket.receive()
+                
+                # Check for disconnect message type
+                if message["type"] == "websocket.disconnect":
+                    logger.info(f"[VOICE-AGENT-ECHO] Disconnect message received: {session_id}")
+                    break
+                
+                # Check for binary data
+                if "bytes" in message:
+                    data = message["bytes"]
+                    # Log size but limit output
+                    logger.info(f"[VOICE-AGENT-ECHO] Received binary frame: {len(data)} bytes")
+                    
+                    # Echo back a simple text acknowledgment to keep client happy
+                    # (Client expects JSON text response for events)
+                    ack_msg = json.dumps({
+                        "text": f"Ack binary {len(data)} bytes",
+                        "serverContent": { "modelTurn": { "parts": [ { "text": "Ack binary" } ] } } # Dummy structure
+                    })
+                    await websocket.send_text(ack_msg)
+                    
+                # Check for text data
+                elif "text" in message:
+                    text = message["text"]
+                    logger.info(f"[VOICE-AGENT-ECHO] Received text frame: {text}")
+                    
+                    # Echo back
+                    echo_msg = json.dumps({
+                        "text": f"Echo: {text}",
+                        "serverContent": { "modelTurn": { "parts": [ { "text": f"Echo: {text}" } ] } } # Dummy structure
+                    })
+                    await websocket.send_text(echo_msg)
+                    
+        except WebSocketDisconnect:
+            logger.info(f"[VOICE-AGENT-ECHO] WebSocketDisconnect exception: {session_id}")
         except Exception as e:
-            logger.error(f"[VOICE-AGENT] Session error: {e}")
-        finally:
-            live_queue.close()
-            logger.info(f"[VOICE-AGENT] Session ended: {session_id}")
+            logger.error(f"[VOICE-AGENT-ECHO] Unexpected Error: {e}")
+            logger.error(traceback.format_exc())
+            
+        logger.info(f"[VOICE-AGENT-ECHO] Connection closed: {session_id}")
