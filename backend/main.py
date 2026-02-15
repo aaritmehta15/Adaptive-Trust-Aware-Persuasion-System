@@ -15,7 +15,7 @@ if project_root not in sys.path:
 # Load env vars BEFORE imports that rely on them
 load_dotenv()
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -25,7 +25,7 @@ import uvicorn
 
 from src.dialogue_manager import DialogueManager
 from src.config import Config
-from .voice_bridge import init_voice_layer
+from .atlas_voice_agent import AtlasVoiceAgent
 from src.atlas_core import AtlasCore, AtlasRequest
 
 # Initialize FastAPI app
@@ -90,9 +90,12 @@ async def startup_event():
     try:
         init_hf_client()
         # Initialize Voice Integration
-        print(f"DEBUG: Initializing Voice Layer. Sessions dict ID: {id(sessions)}")
-        # Pass the global store to voice layer (though it likely imports it directly now)
-        init_voice_layer(app, sessions)
+        print(f"DEBUG: Initializing Voice Agent for Atlas Core")
+        voice_agent = AtlasVoiceAgent(atlas_core)
+        
+        @app.websocket("/ws/voice/{session_id}")
+        async def voice_endpoint(websocket: WebSocket, session_id: str):
+            await voice_agent.handle_websocket(websocket, session_id)        
         print("✓ Backend initialized successfully")
     except Exception as e:
         print(f"✗ Backend initialization failed: {e}")
