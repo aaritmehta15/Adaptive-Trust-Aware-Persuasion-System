@@ -9,7 +9,7 @@ import logging
 from google.adk import Runner
 from google.adk.runners import LiveRequestQueue
 from google.adk.agents import Agent
-from google.adk.agents.run_config import RunConfig          # CRITICAL: must use this path in v1.25.1
+from google.adk.agents.run_config import RunConfig, StreamingMode  # CRITICAL: must use this path in v1.25.1
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
@@ -127,8 +127,17 @@ class VoiceAgent:
             logger.warning(f"Session cleanup failed (non-fatal): {e}")
 
     def create_run_config(self) -> RunConfig:
-        """Create RunConfig for ADK Voice Mode."""
+        """Create RunConfig for ADK Voice Mode.
+        
+        - StreamingMode.BIDI  : enables full bidirectional streaming (required for
+                                  proper turn-taking with native-audio models)
+        - response_modalities : AUDIO-only output from Gemini
+        - speech_config       : Puck voice, 24kHz PCM Int16 mono output
+        - input_audio_transcription : model transcribes what it hears — surfaces
+                                       turn boundaries and aids debugging
+        """
         return RunConfig(
+            streaming_mode=StreamingMode.BIDI,
             response_modalities=[self.output_modality],
             speech_config=types.SpeechConfig(
                 voice_config=types.VoiceConfig(
@@ -137,6 +146,7 @@ class VoiceAgent:
                     )
                 )
             ),
+            input_audio_transcription=types.AudioTranscriptionConfig(),
         )
 
     async def process_stream(self, session_id: str, live_queue: LiveRequestQueue):

@@ -384,6 +384,11 @@ async def voice_websocket(websocket: WebSocket, session_id: str):
                         for part in event.content.parts:
                             if (hasattr(part, 'inline_data') and part.inline_data
                                     and part.inline_data.mime_type.startswith("audio/pcm")):
+                                chunk_bytes = len(part.inline_data.data)
+                                chunk_samples = chunk_bytes // 2  # Int16 = 2 bytes per sample
+                                print(f"🎧 Audio chunk: {part.inline_data.mime_type}, "
+                                      f"{chunk_bytes} bytes ({chunk_samples} samples, "
+                                      f"{chunk_samples/24000:.3f}s at 24kHz)")
                                 b64 = base64.b64encode(part.inline_data.data).decode("utf-8")
                                 await websocket.send_json({
                                     "type": "audio",
