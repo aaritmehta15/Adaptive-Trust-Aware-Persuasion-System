@@ -1,0 +1,19 @@
+PASS  src/voice_agent.py imports cleanly
+PASS  backend/main.py imports cleanly
+PASS  backend clean of: AtlasVoiceAgent
+PASS  backend clean of: atlas_core
+PASS  backend clean of: session_store
+PASS  backend clean of: from .
+PASS  voice_agent is None guard
+PASS  Lazy LiveRequestQueue import
+PASS  Lazy types import
+PASS  WS route /ws/voice/
+PASS  Upstream receive_from_client
+PASS  Downstream send_to_client
+PASS  asyncio.gather concurrent run
+PASS  Session cleanup in finally
+PASS  GEMINI->GOOGLE_API_KEY bridge
+PASS  Model from Config
+PASS  ATLAS system instruction
+PASS  RunConfig correct import
+PASS  Runner from google.adk

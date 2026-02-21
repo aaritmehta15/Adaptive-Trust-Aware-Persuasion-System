@@ -1,13 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ATLAS - Adaptive Trust Limited Action System</title>
     <link rel="stylesheet" href="styles.css">
 </head>
-
 <body>
     <div class="app-container">
         <!-- Header -->
@@ -32,11 +30,6 @@
                         </span>
                     </label>
                 </div>
-                <button id="voiceToggleBtn" class="btn btn-secondary" style="margin-left: 10px;">🎤 Voice Mode</button>
-                <div id="voiceStatus" style="display: none; align-items: center; margin-left: 10px; color: #4ade80;">
-                    <span class="status-dot" style="background-color: #4ade80; animation: pulse 1.5s infinite;"></span>
-                    <span id="voiceStatusText" style="margin-left: 5px; font-size: 0.9em;">Listening...</span>
-                </div>
             </div>
         </header>
 
@@ -52,20 +45,26 @@
                     <!-- Messages will be inserted here -->
                 </div>
                 <div class="chat-input-container">
-                    <input type="text" id="messageInput" class="chat-input" placeholder="Type your message..." disabled>
+                    <input 
+                        type="text" 
+                        id="messageInput" 
+                        class="chat-input" 
+                        placeholder="Type your message..."
+                        disabled
+                    >
                     <button id="sendBtn" class="btn btn-primary" disabled>Send</button>
                 </div>
             </div>
 
             <!-- Right: Metrics Panel -->
             <div class="metrics-panel">
-                <h2>Metrics Dashboard</h2>
-                <div id="metricsContent" class="metrics-content">
-                    <div class="metrics-placeholder">
-                        <p>Start a conversation to see metrics</p>
-                    </div>
-                </div>
+                <canvas id="metricsChart"></canvas>
+                <div id="metrics-legend"></div>
             </div>
+            <!-- Voice Mode Button -->
+            <button id="voice-mode-btn" onclick="window.voiceClient.start()" style="margin-top: 10px; width: 100%; padding: 10px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                🎙️ Start Voice Mode
+            </button>
         </div>
     </div>
 
@@ -83,8 +82,7 @@
                 </div>
                 <div class="form-group">
                     <label for="cause">Cause</label>
-                    <input type="text" id="cause" value="providing education to underprivileged children"
-                        placeholder="What is the cause?">
+                    <input type="text" id="cause" value="providing education to underprivileged children" placeholder="What is the cause?">
                 </div>
                 <div class="form-group">
                     <label for="amounts">Donation Amounts</label>
@@ -92,8 +90,7 @@
                 </div>
                 <div class="form-group">
                     <label for="impact">Impact Description</label>
-                    <input type="text" id="impact" value="₹200 provides school supplies for 5 children for a month"
-                        placeholder="Describe the impact">
+                    <input type="text" id="impact" value="₹200 provides school supplies for 5 children for a month" placeholder="Describe the impact">
                 </div>
                 <div class="form-actions">
                     <button id="saveScenario" class="btn btn-primary">Save & Start</button>
@@ -106,11 +103,7 @@
     <!-- Load configuration first (for deployed environment) -->
     <script src="config.js"></script>
     <!-- Then load main application -->
-    <!-- Voice Integration Scripts -->
-    <script src="js/audio-utils.js"></script>
-    <script src="js/voice_client.js"></script>
-    <!-- Main Application -->
+    <script src="js/voice-client.js"></script>
     <script src="app.js"></script>
 </body>
-
 </html>

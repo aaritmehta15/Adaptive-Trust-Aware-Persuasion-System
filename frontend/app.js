@@ -224,7 +224,6 @@ async function createSession() {
 
         const data = await response.json();
         currentSessionId = data.session_id;
-        window.sessionId = currentSessionId; // Expose for Voice Client
 
         // Show opening message
         addMessage('agent', data.opening_message);
@@ -461,6 +460,7 @@ function updateMetricsDisplay(metrics) {
     const beliefColor = metrics.belief > 0.6 ? 'positive' : (metrics.belief > 0.3 ? 'warning' : 'danger');
     const trustColor = metrics.trust > 0.7 ? 'positive' : (metrics.trust > 0.5 ? 'warning' : 'danger');
 
+    if (!metricsContent) return;
     metricsContent.innerHTML = `
         <div class="metric-card">
             <h3>Donation Probability</h3>

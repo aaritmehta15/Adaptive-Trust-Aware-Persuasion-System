@@ -9,13 +9,12 @@ import logging
 from google.adk import Runner
 from google.adk.runners import LiveRequestQueue
 from google.adk.agents import Agent
-from google.adk.agents.run_config import RunConfig          # Fix 1: correct import path
+from google.adk.agents.run_config import RunConfig          # CRITICAL: must use this path in v1.25.1
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
 from src.config import Config
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -26,7 +25,7 @@ USER_ID = "atlas_user"
 class VoiceAgent:
     def __init__(self):
         """Initialize the Voice Agent with ADK components."""
-        # ── API Key check + routing (Fix 6) ──────────────────────────
+        # ── API Key Bridge ────────────────────────────────────────────
         # ADK authenticates via GOOGLE_API_KEY.
         # If only GEMINI_API_KEY is set, bridge it here so ADK picks it up.
         gemini_key = os.getenv("GEMINI_API_KEY")
@@ -39,22 +38,30 @@ class VoiceAgent:
             logger.error("❌ Neither GEMINI_API_KEY nor GOOGLE_API_KEY is set. Voice mode will fail.")
             print("❌ Set GEMINI_API_KEY before starting the backend to use Voice Mode.")
 
-        # ── Model (Fix 4: single source of truth via config.py) ───────
+        # ── Model ─────────────────────────────────────────────────────
         self.model_name = Config.ADK_VOICE_MODEL
         self.output_modality = "AUDIO"
 
         # ── Session Service ───────────────────────────────────────────
         self.session_service = InMemorySessionService()
 
-        # ── Agent (Fix 3: pass model= in constructor, no hasattr dance) ──
+        # ── Agent ─────────────────────────────────────────────────────
+        # CRITICAL: pass model= directly in the constructor.
+        # Do NOT try to set self.agent.model after construction via hasattr guard.
         self.agent = Agent(
             name="atlas_voice_agent",
             description="ATLAS Voice Agent for bidirectional audio",
             model=self.model_name,
             instruction=(
-                "You are a helpful and friendly AI assistant. "
-                "You are talking to the user via voice. "
-                "Keep your responses concise and natural for a spoken conversation."
+                "You are ATLAS, a natural conversational voice assistant.\n"
+                "Speak clearly and naturally.\n"
+                "Keep responses concise.\n"
+                "Avoid long monologues.\n"
+                "Pause naturally between ideas.\n"
+                "Wait until the user finishes speaking before responding.\n"
+                "Maintain conversational memory across turns.\n"
+                "Do not rush your speech.\n"
+                "Sound calm and human."
             ),
         )
 
@@ -67,10 +74,6 @@ class VoiceAgent:
 
         logger.info(f"✓ Voice Agent initialized — model: {self.model_name}")
 
-    # ──────────────────────────────────────────────
-    # Session lifecycle
-    # ──────────────────────────────────────────────
-
     @staticmethod
     def generate_session_id() -> str:
         """Generate a unique session ID (UUID-based)."""
@@ -79,7 +82,7 @@ class VoiceAgent:
     async def get_or_create_session(self, session_id: str):
         """
         Create a fresh session or reuse an existing one.
-        Never crashes on duplicate creates (race-condition safe).
+        Race-condition safe: handles 'already exists' errors gracefully.
         """
         try:
             existing = await self.session_service.get_session(
@@ -112,7 +115,7 @@ class VoiceAgent:
             raise
 
     async def delete_session(self, session_id: str):
-        """Clean up session on disconnect. Best-effort, never raises."""
+        """Clean up session on disconnect. Best-effort — never raises."""
         try:
             await self.session_service.delete_session(
                 app_name=APP_NAME,
@@ -122,10 +125,6 @@ class VoiceAgent:
             logger.info(f"🗑️ Deleted session: {session_id}")
         except Exception as e:
             logger.warning(f"Session cleanup failed (non-fatal): {e}")
-
-    # ──────────────────────────────────────────────
-    # RunConfig (voice output settings)
-    # ──────────────────────────────────────────────
 
     def create_run_config(self) -> RunConfig:
         """Create RunConfig for ADK Voice Mode."""
@@ -139,10 +138,6 @@ class VoiceAgent:
                 )
             ),
         )
-
-    # ──────────────────────────────────────────────
-    # Streaming (Model ↔ Client)
-    # ──────────────────────────────────────────────
 
     async def process_stream(self, session_id: str, live_queue: LiveRequestQueue):
         """
