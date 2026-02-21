@@ -1,0 +1,8 @@
+PASS VoiceAgent imports cleanly
+PASS backend/main.py imports cleanly
+PASS RunConfig path correct
+PASS google.genai.types OK
+PASS model from Config
+PASS API key bridge
+PASS None guard present
+PASS no top-level ADK import

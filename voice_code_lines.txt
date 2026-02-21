@@ -1,0 +1,40 @@
+﻿python : Traceback (most 
+recent call last):
+At line:1 char:1
++ python -c "
++ ~~~~~~~~~~~
+    + CategoryInfo          
+    : NotSpecified: (Trace  
+  back (most recent call    
+ last)::String) [], Remo    
+teException
+    + FullyQualifiedErrorId 
+    : NativeCommandError
+ 
+  File "<string>", line 12, 
+in <module>
+  File "C:\Users\Affan\AppDa
+ta\Local\Programs\Python\Pyt
+hon312\Lib\encodings\cp1252.
+py", line 19, in encode
+    return codecs.charmap_en
+code(input,self.errors,encod
+ing_table)[0]
+           ^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^
+UnicodeEncodeError: 
+'charmap' codec can't 
+encode characters in 
+position 15-16: character 
+maps to <undefined>
+15: from src.voice_agent import VoiceAgent
+16: from google.adk.runners import LiveRequestQueue
+38: voice_agent = None
+89:         global voice_agent
+90:         voice_agent = VoiceAgent()
+290: @app.websocket("/ws/voice/{session_id}")
+291: async def voice_websocket(websocket: WebSocket, session_id: str):
+293:     WebSocket Endpoint for ADK Voice (Bidirectional).
+303:     actual_session_id = voice_agent.generate_session_id()
+306:     await websocket.accept()
