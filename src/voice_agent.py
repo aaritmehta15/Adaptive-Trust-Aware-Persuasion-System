@@ -13,6 +13,14 @@ import uuid
 import logging
 from typing import AsyncGenerator, Optional
 
+# ── API key bridging ──────────────────────────────────────────────────────────
+# Google ADK authenticates via GOOGLE_API_KEY.
+# This project stores the key as GEMINI_API_KEY instead.
+# Copy it over before any ADK/genai import so the SDK finds it automatically.
+if os.getenv("GEMINI_API_KEY") and not os.getenv("GOOGLE_API_KEY"):
+    os.environ["GOOGLE_API_KEY"] = os.environ["GEMINI_API_KEY"]
+    print(f"[VoiceAgent] Mapped GEMINI_API_KEY → GOOGLE_API_KEY")
+
 from google.adk.agents import Agent
 from google.adk.agents.run_config import RunConfig, StreamingMode
 from google.adk.runners import Runner
@@ -105,23 +113,16 @@ class VoiceAgent:
         )
 
     def _make_run_config(self) -> RunConfig:
-        """Build RunConfig for native-audio bidi streaming."""
-        model_name = Config.ADK_VOICE_MODEL.lower()
-        is_native = "native-audio" in model_name
+        """Build RunConfig for bidi audio streaming with input transcription.
 
-        if is_native:
-            return RunConfig(
-                streaming_mode=StreamingMode.BIDI,
-                response_modalities=["AUDIO"],
-                input_audio_transcription=types.AudioTranscriptionConfig(),
-                output_audio_transcription=types.AudioTranscriptionConfig(),
-            )
-        else:
-            # Half-cascade / flash models: respond with audio via BIDI
-            return RunConfig(
-                streaming_mode=StreamingMode.BIDI,
-                response_modalities=["AUDIO"],
-            )
+        input_audio_transcription gives us text events for each user turn so
+        we can run the ATLAS belief/trust metrics without calling the LLM.
+        """
+        return RunConfig(
+            streaming_mode=StreamingMode.BIDI,
+            response_modalities=["AUDIO"],
+            input_audio_transcription=types.AudioTranscriptionConfig(),
+        )
 
     # ── Public interface (called by backend/main.py) ──────────────────────────
 
@@ -138,6 +139,65 @@ class VoiceAgent:
         self._donation_context = donation_context
         self._build_runner()
         logger.info(f"[VoiceAgent] Mode set to {mode}")
+
+    def _update_dm_metrics(self, client_session_id: str, user_text: str) -> None:
+        """
+        Run the ATLAS persuasion metric pipeline on a voice-transcribed user message.
+
+        Replicates the metric side-effects of DialogueManager.process() without
+        calling the LLM (Gemini handles the spoken response instead):
+          - Rejection detection
+          - Belief update
+          - Trust update  (C3 only)
+          - Strategy adaptation (C3 only)
+          - History logging
+        """
+        try:
+            # Import sessions dict from backend at call time to avoid circular deps
+            from backend.main import sessions as dm_sessions
+            dm = dm_sessions.get(client_session_id)
+            if not dm or not dm.active:
+                return
+
+            user_text = user_text.strip()
+            if not user_text:
+                return
+
+            dm.turn += 1
+            rej_info = dm.detector.detect(user_text)
+            prev_strat = dm.history[-1].get('strategy', 'Empathy') if dm.history else 'Empathy'
+
+            # Belief update
+            delta_p = dm.belief.update(rej_info, dm.trust.get())
+
+            # Trust update (ATLAS mode only)
+            delta_t = 0.0
+            if dm.condition == 'C3':
+                delta_t, _ = dm.trust.update(rej_info, prev_strat)
+
+            # Guardrails check
+            should_stop, reason = dm.guard.check(
+                rej_info, dm.trust.get(), dm.belief.get()
+            )
+            if should_stop:
+                dm.active = False
+                dm.outcome = reason
+
+            # Strategy adaptation
+            if dm.condition in ['C2', 'C3']:
+                dm.strategy.adapt(prev_strat, rej_info)
+
+            # Log the user's voice turn
+            dm.history.append(
+                {'turn': dm.turn, 'speaker': 'user', 'msg': user_text, 'info': rej_info}
+            )
+            logger.info(
+                f"[VoiceAgent] Metrics updated — turn={dm.turn} "
+                f"belief={dm.belief.get():.3f} trust={dm.trust.get():.3f} "
+                f"rej={rej_info['rejection_type']}"
+            )
+        except Exception as exc:
+            logger.warning(f"[VoiceAgent] Metrics update failed: {exc}")
 
     async def get_or_create_session(self, session_id: str):
         """
@@ -160,13 +220,35 @@ class VoiceAgent:
             logger.info(f"[VoiceAgent] Reused ADK session: {session_id}")
         return session
 
-    async def process_stream(self, session_id: str, live_queue) -> AsyncGenerator:
+    async def process_stream(
+        self,
+        session_id: str,
+        live_queue,
+        client_session_id: Optional[str] = None,
+    ) -> AsyncGenerator:
         """
-        Bidirectional streaming: starts runner.run_live() and yields
-        raw ADK Event objects.  backend/main.py inspects each event for
-        audio content, interruptions, and turn_complete markers.
+        Bidirectional streaming — yields raw ADK Event objects.
+
+        When client_session_id is supplied (passed by the WS handler in
+        backend/main.py), input audio transcription events are used to update
+        the ATLAS belief/trust/strategy metrics in the existing DialogueManager
+        so the UI dashboard stays live during voice conversations.
         """
         run_config = self._make_run_config()
+
+        # Prompt Gemini to open the conversation with a spoken greeting.
+        ctx = self._donation_context or {}
+        org   = ctx.get("organization", "our organisation")
+        cause = ctx.get("cause", "an important cause")
+        opening_prompt = (
+            f"Please greet the user warmly and introduce yourself as a fundraising "
+            f"assistant for {org} working on {cause}. "
+            f"Keep it to one short sentence, then ask if they can hear you."
+        )
+        live_queue.send_content(
+            types.Content(role="user", parts=[types.Part(text=opening_prompt)])
+        )
+        print(f"[VoiceAgent] Opening prompt sent for session {session_id}")
 
         async for event in self._runner.run_live(
             user_id=_USER_ID,
@@ -174,6 +256,26 @@ class VoiceAgent:
             live_request_queue=live_queue,
             run_config=run_config,
         ):
+            # ── Detect user-speech transcription events ─────────────────────
+            # When input_audio_transcription is enabled, ADK emits text events
+            # for the user's speech.  We use these to update the ATLAS metrics.
+            if (
+                client_session_id
+                and hasattr(event, 'content')
+                and event.content
+                and hasattr(event.content, 'role')
+                and event.content.role == 'user'
+            ):
+                for part in event.content.parts:
+                    if (
+                        hasattr(part, 'text')
+                        and part.text
+                        and not hasattr(part, 'inline_data')
+                    ):
+                        # This is a transcription part, not audio
+                        print(f"[VoiceAgent] User transcript: {part.text!r}")
+                        self._update_dm_metrics(client_session_id, part.text)
+
             yield event
 
     async def delete_session(self, session_id: str):

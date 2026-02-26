@@ -392,7 +392,7 @@ async def voice_websocket(websocket: WebSocket, session_id: str):
         async def send_to_client():
             try:
                 print("🎧 Step 3: Starting model stream...")
-                async for event in voice_agent.process_stream(actual_session_id, live_queue):
+                async for event in voice_agent.process_stream(actual_session_id, live_queue, session_id):
                     # Log event type
                     event_type = type(event).__name__
                     print(f"📤 Event: {event_type}")
