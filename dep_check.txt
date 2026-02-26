@@ -1,0 +1,12 @@
+FAIL google-adk: No module named 'google.adk'
+FAIL google-adk.runners: No module named 'google.adk'
+FAIL google-adk.agents: No module named 'google.adk'
+FAIL google-adk.sessions: No module named 'google.adk'
+FAIL google-genai: No module named 'google.genai'
+FAIL google-genai.types: No module named 'google.genai'
+PASS fastapi: 0.111.0
+PASS uvicorn: 0.30.1
+PASS huggingface-hub: 0.36.0
+PASS textblob: installed
+PASS websockets: 15.0.1
+PASS numpy: 2.3.1
