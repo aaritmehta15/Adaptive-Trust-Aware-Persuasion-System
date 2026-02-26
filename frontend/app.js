@@ -25,6 +25,7 @@ const sendBtn = document.getElementById('sendBtn');
 const chatMessages = document.getElementById('chatMessages');
 const metricsContent = document.getElementById('metricsContent');
 const setupModal = document.getElementById('setupModal');
+let currentInputMode = 'text'; // 'text' or 'voice'
 const closeModal = document.getElementById('closeModal');
 const saveScenario = document.getElementById('saveScenario');
 const cancelSetup = document.getElementById('cancelSetup');
@@ -280,7 +281,7 @@ async function handleModeChange() {
     if (currentSessionId) {
         // Clear chat and create new session with new mode
         chatMessages.innerHTML = '';
-        metricsContent.innerHTML = '<div class="metrics-placeholder"><p>Start a conversation to see metrics</p></div>';
+        if (metricsContent) metricsContent.innerHTML = '<div class="metrics-placeholder"><p>Start a conversation to see metrics</p></div>';
         // Update metrics title based on mode
         const metricsTitle = document.querySelector('.metrics-panel h2');
         if (metricsTitle) {
@@ -364,7 +365,7 @@ async function handleReset() {
         addMessage('agent', data.opening_message);
 
         // Reset metrics
-        metricsContent.innerHTML = '<div class="metrics-placeholder"><p>Start a conversation to see metrics</p></div>';
+        if (metricsContent) metricsContent.innerHTML = '<div class="metrics-placeholder"><p>Start a conversation to see metrics</p></div>';
         // Reset metrics title
         const metricsTitle = document.querySelector('.metrics-panel h2');
         if (metricsTitle && currentMode === 'C3') {
@@ -461,6 +462,7 @@ function updateMetricsDisplay(metrics) {
     const trustColor = metrics.trust > 0.7 ? 'positive' : (metrics.trust > 0.5 ? 'warning' : 'danger');
 
     if (!metricsContent) return;
+
     metricsContent.innerHTML = `
         <div class="metric-card">
             <h3>Donation Probability</h3>
@@ -674,4 +676,121 @@ function renderChart(data) {
             }
         }
     });
+}
+
+// ============= INPUT MODE SWITCHING =============
+
+function switchInputMode(mode) {
+    currentInputMode = mode;
+    const textArea = document.getElementById('textInputArea');
+    const voiceArea = document.getElementById('voiceInputArea');
+    const textBtn = document.getElementById('textModeBtn');
+    const voiceBtn = document.getElementById('voiceModeBtn');
+
+    if (mode === 'text') {
+        textArea.style.display = 'flex';
+        voiceArea.style.display = 'none';
+        textBtn.classList.add('active');
+        voiceBtn.classList.remove('active');
+        // Stop voice if active
+        if (window.voiceClient && window.voiceClient.isActive) {
+            window.voiceClient.stop();
+            updateVoiceUI(false);
+        }
+    } else {
+        textArea.style.display = 'none';
+        voiceArea.style.display = 'flex';
+        textBtn.classList.remove('active');
+        voiceBtn.classList.add('active');
+    }
+}
+
+function toggleVoice() {
+    if (!window.voiceClient) {
+        alert('Voice client not loaded');
+        return;
+    }
+
+    if (window.voiceClient.isActive) {
+        window.voiceClient.stop();
+        updateVoiceUI(false);
+    } else {
+        window.voiceClient.start();
+        // UI update happens via voiceClient callback
+    }
+}
+
+function updateVoiceUI(active) {
+    const btn = document.getElementById('voiceToggleBtn');
+    const icon = document.getElementById('voiceIcon');
+    const label = document.getElementById('voiceLabel');
+    const status = document.getElementById('voiceStatus');
+
+    if (active) {
+        btn.classList.add('active');
+        icon.textContent = '🔴';
+        label.textContent = 'Stop';
+        status.textContent = '🔴 Listening... Speak now';
+    } else {
+        btn.classList.remove('active');
+        icon.textContent = '🎙️';
+        label.textContent = 'Start Talking';
+        status.textContent = 'Click to start voice conversation';
+    }
+}
+
+// Function to add voice transcripts to chat
+function addVoiceMessage(sender, text) {
+    addMessage(sender, text);
+}
+
+/**
+ * Send a voice-transcribed message through the EXACT SAME pipeline as text.
+ * Called by VoiceClient after speech recognition.
+ * Returns the agent's response text (so voice client can speak it).
+ */
+async function sendVoiceMessage(transcript) {
+    if (!transcript || !currentSessionId) return null;
+
+    // Show user message in chat (mark it as voice)
+    addMessage('user', '🎤 ' + transcript);
+
+    try {
+        const response = await fetch(`${API_BASE}/api/session/message`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                session_id: currentSessionId,
+                message: transcript
+            })
+        });
+
+        if (!response.ok) throw new Error('Failed to send message');
+
+        const data = await response.json();
+
+        // Show agent response in chat
+        addMessage('agent', data.agent_msg);
+
+        // Update metrics — SAME as text chat
+        updateMetricsDisplay(data.metrics);
+
+        // Check if conversation ended
+        if (data.stop) {
+            messageInput.disabled = true;
+            sendBtn.disabled = true;
+            showNotification('Conversation ended: ' + (data.reason || 'Session completed'));
+            addGraphButton();
+            // Stop voice mode
+            if (window.voiceClient && window.voiceClient.isActive) {
+                window.voiceClient.stop();
+            }
+        }
+
+        return data.agent_msg;
+    } catch (error) {
+        console.error('Voice send error:', error);
+        addMessage('agent', '⚠️ Error processing voice message. Try again.');
+        return null;
+    }
 }

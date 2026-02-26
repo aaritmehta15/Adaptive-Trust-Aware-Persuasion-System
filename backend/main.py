@@ -285,6 +285,24 @@ async def setup_scenario(data: ScenarioSetup):
     }
 
 
+class VoiceModeRequest(BaseModel):
+    mode: str  # 'C1' or 'C3'
+    donation_context: Optional[Dict] = None
+
+
+@app.post("/api/voice/set-mode")
+async def set_voice_mode(data: VoiceModeRequest):
+    """Set the voice agent's mode and donation context"""
+    if voice_agent is None:
+        raise HTTPException(status_code=503, detail="Voice agent not initialized")
+    
+    if data.mode not in ['C1', 'C3']:
+        raise HTTPException(status_code=400, detail="Mode must be 'C1' or 'C3'")
+    
+    voice_agent.set_mode(data.mode, data.donation_context)
+    return {"status": "ok", "mode": data.mode}
+
+
 @app.websocket("/ws/voice/{session_id}")
 async def voice_websocket(websocket: WebSocket, session_id: str):
     """

@@ -688,6 +688,93 @@ body {
     padding: 1rem;
 }
 
+/* Input Mode Selector */
+.input-mode-selector {
+    display: flex;
+    gap: 4px;
+    background: var(--bg-light);
+    border-radius: 8px;
+    padding: 3px;
+}
+
+.mode-btn {
+    padding: 0.35rem 0.8rem;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    background: transparent;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+}
+
+.mode-btn.active {
+    background: var(--primary-color);
+    color: white;
+}
+
+.mode-btn:hover:not(.active) {
+    background: var(--bg-darker);
+    color: var(--text-primary);
+}
+
+/* Voice Input Area */
+.voice-input-container {
+    padding: 1.5rem;
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-dark);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.voice-toggle-btn {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: 3px solid var(--primary-color);
+    background: var(--bg-light);
+    color: var(--text-primary);
+    font-size: 2rem;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    transition: all 0.3s;
+}
+
+.voice-toggle-btn:hover {
+    background: var(--primary-color);
+    transform: scale(1.05);
+}
+
+.voice-toggle-btn.active {
+    background: var(--danger-color);
+    border-color: var(--danger-color);
+    animation: voicePulse 1.5s infinite;
+}
+
+.voice-toggle-btn span#voiceLabel {
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.voice-status {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+@keyframes voicePulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+    50% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
+}
+
 /* Responsive */
 @media (max-width: 1024px) {
     .main-content {

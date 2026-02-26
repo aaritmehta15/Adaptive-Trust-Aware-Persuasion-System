@@ -1,235 +1,188 @@
 /**
- * VoiceClient — Browser-side voice integration for ATLAS.
- *
- * Two-AudioContext architecture (matches Google ADK bidi-demo reference):
- *
- *   recorderContext (16kHz)
- *     └── getUserMedia stream → pcm-recorder-processor worklet
- *           └── port.onmessage → Float32 frames → sendAudio() → WebSocket
- *
- *   playerContext (24kHz)  ← matches Gemini native audio output rate
- *     └── pcm-player-processor worklet (ring buffer: 60 s × 24kHz)
- *           └── connected to playerContext.destination → speakers
- *
- * This separation ensures:
- *   - Mic is captured at the exact rate Gemini expects (16kHz)
- *   - Playback runs at the exact rate Gemini produces (24kHz)
- *   - Mic audio is NOT looped back through the speakers
- *   - No unintended resampling by the browser
+ * VoiceClient — Simple voice extension for ATLAS text chat.
+ * 
+ * This is NOT a separate AI. It uses the browser's built-in:
+ *   - SpeechRecognition → transcribes user's voice to text
+ *   - SpeechSynthesis → speaks the agent's text response out loud
+ * 
+ * The transcribed text goes through the EXACT same pipeline as typed text:
+ *   User speaks → transcribed → /api/session/message → response → spoken back
+ *   All metrics (belief, trust, strategy) update normally.
  */
 class VoiceClient {
     constructor() {
-        this.websocket = null;
-
-        // Two separate AudioContexts — one per direction
-        this.recorderContext = null;   // 16 kHz  — mic capture only
-        this.playerContext = null;   // 24 kHz  — server audio playback only
-
-        this.recorderNode = null;      // pcm-recorder-processor worklet node
-        this.playerNode = null;      // pcm-player-processor worklet node
-
-        this.mediaStream = null;       // Raw getUserMedia stream (for cleanup)
         this.isActive = false;
+        this.recognition = null;
+        this.synth = window.speechSynthesis;
+        this.isSpeaking = false;
     }
 
-    // ── Session ID ─────────────────────────────────────────────────────────
-    _generateSessionId() {
-        return 'voice_' + Math.random().toString(36).substring(2, 14);
-    }
-
-    // ── Start ──────────────────────────────────────────────────────────────
-    async start() {
+    start() {
         if (this.isActive) return;
 
-        try {
-            console.log('🎙️ Starting Voice Client...');
+        // Check browser support
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            alert('Your browser does not support Speech Recognition. Use Chrome.');
+            return;
+        }
 
-            // ── 1. Player AudioContext at 24kHz (Gemini output rate) ───────
-            this.playerContext = new (window.AudioContext || window.webkitAudioContext)({
-                sampleRate: 24000,
-                latencyHint: 'interactive',
-            });
-            console.log(`🔊 Player AudioContext: sampleRate=${this.playerContext.sampleRate}`);
-            await this.playerContext.audioWorklet.addModule('js/audio-player-processor.js');
+        this.recognition = new SpeechRecognition();
+        this.recognition.lang = 'en-US';       // Force English
+        this.recognition.continuous = true;      // Keep listening
+        this.recognition.interimResults = false; // Only final results
 
-            this.playerNode = new AudioWorkletNode(this.playerContext, 'pcm-player-processor');
-            this.playerNode.connect(this.playerContext.destination);
-
-            // ── 2. Recorder AudioContext at 16kHz (Gemini input rate) ─────
-            this.recorderContext = new (window.AudioContext || window.webkitAudioContext)({
-                sampleRate: 16000,
-                latencyHint: 'interactive',
-            });
-            console.log(`🎤 Recorder AudioContext: sampleRate=${this.recorderContext.sampleRate}`);
-            await this.recorderContext.audioWorklet.addModule('js/audio-processor.js');
-
-            // ── 3. Microphone (captured at 16kHz via recorderContext) ─────
-            this.mediaStream = await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    channelCount: 1,
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true,
+        this.recognition.onresult = (event) => {
+            // Get the last final result
+            const lastResult = event.results[event.results.length - 1];
+            if (lastResult.isFinal) {
+                const transcript = lastResult[0].transcript.trim();
+                if (transcript) {
+                    console.log('🎤 You said:', transcript);
+                    this._handleVoiceInput(transcript);
                 }
-            });
+            }
+        };
 
-            const source = this.recorderContext.createMediaStreamSource(this.mediaStream);
-            this.recorderNode = new AudioWorkletNode(this.recorderContext, 'pcm-recorder-processor');
-
-            // Mic frames arrive as Float32 at 16kHz → convert and send upstream
-            this.recorderNode.port.onmessage = (event) => {
-                this.sendAudio(event.data); // event.data is a copied Float32Array
-            };
-
-            // Recorder chain: mic → recorder worklet (NOT connected to destination)
-            source.connect(this.recorderNode);
-            // NOTE: recorderNode intentionally NOT connected to destination — no mic loopback
-
-            // ── 4. WebSocket ───────────────────────────────────────────────
-            const sessionId = this._generateSessionId();
-            const baseUrl = (window.DEPLOYED_API_URL || 'http://localhost:8000').replace('http', 'ws');
-            const wsUrl = `${baseUrl}/ws/voice/${sessionId}`;
-            console.log(`🔌 Connecting to: ${wsUrl}`);
-            this.websocket = new WebSocket(wsUrl);
-
-            this.websocket.onopen = () => {
-                console.log('✅ Voice WebSocket Connected');
-                this.isActive = true;
-                this.updateUI(true);
-            };
-
-            this.websocket.onmessage = async (event) => {
-                try {
-                    const msg = JSON.parse(event.data);
-                    if (msg.type === 'audio') {
-                        this.playAudio(msg.data);
-                    } else if (msg.type === 'interrupted') {
-                        console.log('❗ Interrupted — clearing audio buffer');
-                        this.clearAudioBuffer();
-                    } else if (msg.type === 'turn_complete') {
-                        console.log('✅ Agent turn complete');
-                    } else if (msg.type === 'error') {
-                        console.error('🔴 Server Error:', msg.message);
-                    }
-                } catch (e) {
-                    console.error('Message parse error:', e);
-                }
-            };
-
-            this.websocket.onclose = (event) => {
-                console.log(`🔌 Voice WebSocket Closed (code: ${event.code})`);
+        this.recognition.onerror = (event) => {
+            console.error('🎤 Speech recognition error:', event.error);
+            if (event.error === 'not-allowed') {
+                alert('Microphone access denied. Please allow microphone access.');
                 this.stop();
-            };
+            }
+        };
 
-            this.websocket.onerror = (error) => {
-                console.error('❌ WebSocket Error:', error);
-            };
+        this.recognition.onend = () => {
+            // Auto-restart if still active (recognition stops after silence)
+            if (this.isActive && !this.isSpeaking) {
+                try {
+                    this.recognition.start();
+                } catch (e) {
+                    // Already started, ignore
+                }
+            }
+        };
 
-            console.log('🎤 Microphone active, streaming audio at 16kHz...');
+        try {
+            this.recognition.start();
+            this.isActive = true;
+            console.log('🎤 Voice mode started — listening in English...');
 
+            // Speak the current agent message if there is one
+            this._speakLastAgentMessage();
+
+            // Update UI
+            if (typeof updateVoiceUI === 'function') {
+                updateVoiceUI(true);
+            }
         } catch (e) {
-            console.error('❌ Failed to start voice client:', e);
-            alert('Could not start voice mode: ' + e.message);
-            this.stop();
+            console.error('Failed to start voice:', e);
+            alert('Could not start voice: ' + e.message);
         }
     }
 
-    // ── Stop ───────────────────────────────────────────────────────────────
     stop() {
         this.isActive = false;
-        this.updateUI(false);
 
-        if (this.websocket) {
-            try { this.websocket.close(); } catch (_) { }
-            this.websocket = null;
+        if (this.recognition) {
+            try { this.recognition.stop(); } catch (_) { }
+            this.recognition = null;
         }
-        if (this.mediaStream) {
-            this.mediaStream.getTracks().forEach(track => track.stop());
-            this.mediaStream = null;
+
+        // Stop any ongoing speech
+        if (this.synth) {
+            this.synth.cancel();
         }
-        if (this.recorderContext) {
-            try { this.recorderContext.close(); } catch (_) { }
-            this.recorderContext = null;
+        this.isSpeaking = false;
+
+        console.log('🛑 Voice mode stopped.');
+
+        if (typeof updateVoiceUI === 'function') {
+            updateVoiceUI(false);
         }
-        if (this.playerContext) {
-            try { this.playerContext.close(); } catch (_) { }
-            this.playerContext = null;
-        }
-        this.recorderNode = null;
-        this.playerNode = null;
-        console.log('🛑 Voice client stopped.');
     }
 
-    // ── Upstream: mic → server ─────────────────────────────────────────────
     /**
-     * Convert Float32 (from 16kHz recorderContext) → Int16 → Base64 → WebSocket.
-     * float32Array is already a copy (made in audio-processor.js), safe to read.
+     * Handle voice input — sends it through the SAME pipeline as text chat.
+     * This calls handleSendMessage from app.js with the transcribed text.
      */
-    sendAudio(float32Array) {
-        if (!this.websocket || this.websocket.readyState !== WebSocket.OPEN) return;
-
-        // Float32 → Int16 (signed, symmetric clamp)
-        const int16Array = new Int16Array(float32Array.length);
-        for (let i = 0; i < float32Array.length; i++) {
-            const s = Math.max(-1, Math.min(1, float32Array[i]));
-            int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    async _handleVoiceInput(transcript) {
+        // Pause recognition while processing (so it doesn't pick up the agent's voice)
+        if (this.recognition) {
+            try { this.recognition.stop(); } catch (_) { }
         }
 
-        // Int16 binary → Base64
-        const uint8 = new Uint8Array(int16Array.buffer);
-        let binary = '';
-        for (let i = 0; i < uint8.byteLength; i++) {
-            binary += String.fromCharCode(uint8[i]);
+        // Use the SAME send message flow as text chat
+        // This updates all metrics, belief, trust, etc.
+        if (typeof sendVoiceMessage === 'function') {
+            const agentResponse = await sendVoiceMessage(transcript);
+            if (agentResponse) {
+                await this._speak(agentResponse);
+            }
         }
 
-        this.websocket.send(JSON.stringify({
-            mime_type: 'audio/pcm',
-            data: btoa(binary),
-        }));
+        // Resume listening after speaking
+        if (this.isActive && this.recognition) {
+            try {
+                this.recognition.start();
+            } catch (e) {
+                // Already started
+            }
+        }
     }
 
-    // ── Downstream: server → speaker ───────────────────────────────────────
     /**
-     * Decode Base64 audio from server → Int16Array → player worklet ring buffer.
-     * Server sends audio/pcm;rate=24000 Int16 mono little-endian.
+     * Speak text using browser's built-in Text-to-Speech.
+     * Returns a promise that resolves when done speaking.
      */
-    playAudio(base64Data) {
-        console.log(`🔊 Received audio chunk: ${base64Data.length} base64 chars`);
-        const binaryString = atob(base64Data);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-        }
-        // Reinterpret raw bytes as Int16 (little-endian, as sent by Gemini)
-        const int16Data = new Int16Array(bytes.buffer);
-        console.log(`   → ${int16Data.length} Int16 samples (${(int16Data.length / 24000).toFixed(3)}s at 24kHz)`);
+    _speak(text) {
+        return new Promise((resolve) => {
+            if (!this.synth || !text) {
+                resolve();
+                return;
+            }
 
-        if (this.playerNode) {
-            // Transfer Int16Array to worklet — postMessage with transferable
-            // (Int16Array is a view, transfer the underlying buffer)
-            const transferBuffer = int16Data.buffer.slice(0); // own copy
-            const transferArray = new Int16Array(transferBuffer);
-            this.playerNode.port.postMessage(transferArray, [transferBuffer]);
-        }
+            // Cancel any ongoing speech
+            this.synth.cancel();
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'en-US';
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            utterance.volume = 1.0;
+
+            // Try to pick a good English voice
+            const voices = this.synth.getVoices();
+            const englishVoice = voices.find(v => v.lang.startsWith('en') && v.name.includes('Google'))
+                || voices.find(v => v.lang.startsWith('en-US'))
+                || voices.find(v => v.lang.startsWith('en'));
+            if (englishVoice) {
+                utterance.voice = englishVoice;
+            }
+
+            this.isSpeaking = true;
+
+            utterance.onend = () => {
+                this.isSpeaking = false;
+                resolve();
+            };
+            utterance.onerror = () => {
+                this.isSpeaking = false;
+                resolve();
+            };
+
+            this.synth.speak(utterance);
+        });
     }
 
-    // ── Buffer clear (on interruption) ─────────────────────────────────────
-    clearAudioBuffer() {
-        if (this.playerNode) {
-            this.playerNode.port.postMessage({ command: 'clear' });
-        }
-    }
-
-    // ── UI helpers ─────────────────────────────────────────────────────────
-    updateUI(active) {
-        const btn = document.getElementById('voice-mode-btn');
-        if (btn) {
-            btn.textContent = active ? '🔴 Stop Voice' : '🎙️ Start Voice';
-            btn.style.backgroundColor = active ? '#ff4444' : '';
-        }
-        const inputContainer = document.querySelector('.chat-input-container');
-        if (inputContainer) {
-            inputContainer.style.display = active ? 'none' : 'flex';
+    /**
+     * Speak the last agent message in the chat (for when voice mode starts mid-conversation)
+     */
+    _speakLastAgentMessage() {
+        const messages = document.querySelectorAll('.message.agent .message-bubble');
+        if (messages.length > 0) {
+            const lastMsg = messages[messages.length - 1].textContent;
+            this._speak(lastMsg);
         }
     }
 }

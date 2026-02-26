@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ATLAS - Adaptive Trust Limited Action System</title>
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <div class="app-container">
         <!-- Header -->
@@ -20,6 +22,7 @@
                     <span class="status-text">Checking...</span>
                 </div>
                 <button id="setupBtn" class="btn btn-secondary">Setup Scenario</button>
+                <!-- Mode Toggle: Regular vs ATLAS -->
                 <div class="mode-toggle-container">
                     <span class="mode-label">Mode:</span>
                     <label class="toggle-switch">
@@ -39,32 +42,44 @@
             <div class="conversation-panel">
                 <div class="conversation-header">
                     <h2>Conversation</h2>
-                    <button id="resetBtn" class="btn btn-small">Reset</button>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <!-- Input Mode Selector -->
+                        <div class="input-mode-selector">
+                            <button id="textModeBtn" class="mode-btn active" onclick="switchInputMode('text')">💬
+                                Text</button>
+                            <button id="voiceModeBtn" class="mode-btn" onclick="switchInputMode('voice')">🎙️
+                                Voice</button>
+                        </div>
+                        <button id="resetBtn" class="btn btn-small">Reset</button>
+                    </div>
                 </div>
                 <div id="chatMessages" class="chat-messages">
                     <!-- Messages will be inserted here -->
                 </div>
-                <div class="chat-input-container">
-                    <input 
-                        type="text" 
-                        id="messageInput" 
-                        class="chat-input" 
-                        placeholder="Type your message..."
-                        disabled
-                    >
+                <!-- Text Input (shown by default) -->
+                <div id="textInputArea" class="chat-input-container">
+                    <input type="text" id="messageInput" class="chat-input" placeholder="Type your message..." disabled>
                     <button id="sendBtn" class="btn btn-primary" disabled>Send</button>
+                </div>
+                <!-- Voice Input (hidden by default) -->
+                <div id="voiceInputArea" class="voice-input-container" style="display: none;">
+                    <button id="voiceToggleBtn" class="voice-toggle-btn" onclick="toggleVoice()">
+                        <span id="voiceIcon">🎙️</span>
+                        <span id="voiceLabel">Start Talking</span>
+                    </button>
+                    <div id="voiceStatus" class="voice-status">Click to start voice conversation</div>
                 </div>
             </div>
 
             <!-- Right: Metrics Panel -->
             <div class="metrics-panel">
-                <canvas id="metricsChart"></canvas>
-                <div id="metrics-legend"></div>
+                <h2>Metrics Dashboard</h2>
+                <div id="metricsContent" class="metrics-content">
+                    <div class="metrics-placeholder">
+                        <p>Start a conversation to see metrics</p>
+                    </div>
+                </div>
             </div>
-            <!-- Voice Mode Button -->
-            <button id="voice-mode-btn" onclick="window.voiceClient.start()" style="margin-top: 10px; width: 100%; padding: 10px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">
-                🎙️ Start Voice Mode
-            </button>
         </div>
     </div>
 
@@ -82,7 +97,8 @@
                 </div>
                 <div class="form-group">
                     <label for="cause">Cause</label>
-                    <input type="text" id="cause" value="providing education to underprivileged children" placeholder="What is the cause?">
+                    <input type="text" id="cause" value="providing education to underprivileged children"
+                        placeholder="What is the cause?">
                 </div>
                 <div class="form-group">
                     <label for="amounts">Donation Amounts</label>
@@ -90,7 +106,8 @@
                 </div>
                 <div class="form-group">
                     <label for="impact">Impact Description</label>
-                    <input type="text" id="impact" value="₹200 provides school supplies for 5 children for a month" placeholder="Describe the impact">
+                    <input type="text" id="impact" value="₹200 provides school supplies for 5 children for a month"
+                        placeholder="Describe the impact">
                 </div>
                 <div class="form-actions">
                     <button id="saveScenario" class="btn btn-primary">Save & Start</button>
@@ -100,10 +117,12 @@
         </div>
     </div>
 
-    <!-- Load configuration first (for deployed environment) -->
+    <!-- Load configuration first -->
     <script src="config.js"></script>
-    <!-- Then load main application -->
+    <!-- Voice client -->
     <script src="js/voice-client.js"></script>
+    <!-- Main application -->
     <script src="app.js"></script>
 </body>
+
 </html>
