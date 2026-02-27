@@ -50,7 +50,7 @@ def init_hf_client():
         hf_client = InferenceClient(api_key=HF_TOKEN)
         print("✓ HuggingFace client initialized successfully")
     except Exception as e:
-        print(f"✗ Failed to initialize HF client: {e}")
+        print(f"[X] Failed to initialize HF client: {e}")
         raise
 
 
@@ -79,7 +79,7 @@ async def startup_event():
         init_hf_client()
         print("✓ Backend initialized successfully")
     except Exception as e:
-        print(f"✗ HF Client initialization failed: {e}")
+        print(f"[X] HF Client initialization failed: {e}")
         print("The server will start but based text chat may not work.")
 
     # Initialize Voice Agent (Voice Mode)
@@ -96,7 +96,7 @@ async def startup_event():
             print("❌ GEMINI_API_KEY NOT FOUND!")
             
     except Exception as e:
-        print(f"✗ Voice Agent initialization failed: {e}")
+        print(f"[X] Voice Agent initialization failed: {e}")
 
 
 @app.get("/")
