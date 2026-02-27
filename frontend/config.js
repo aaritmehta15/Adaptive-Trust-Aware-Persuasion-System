@@ -3,7 +3,7 @@
 
 // IMPORTANT: Update this with your actual Render backend URL or localhost
 // window.DEPLOYED_API_URL = 'https://persuation-system2.onrender.com';
-window.DEPLOYED_API_URL = 'http://localhost:8000';
+window.DEPLOYED_API_URL = 'https://persuation-system2.onrender.com';
 
 // Example: If your Render URL is https://persuasion-system-backend-abc123.onrender.com
 // Then set: window.DEPLOYED_API_URL = 'https://persuasion-system-backend-abc123.onrender.com';
