@@ -20,7 +20,7 @@ class Config:
     
     # System settings
     TEMPERATURE = 0.8
-    MAX_NEW_TOKENS = 64
+    MAX_NEW_TOKENS = 200
 
     # ---- Initial states ----
     INITIAL_BELIEF = 0.15    # start higher so drops are visible
@@ -31,9 +31,9 @@ class Config:
     # This allows for recovery mode scenarios
 
     # ---- Learning rates (KEY CHANGE) ----
-    ALPHA = 0.35   # belief moves clearly each turn
-    BETA = 0.4     # trust reacts noticeably to skepticism
-    GAMMA = 0.15   # recovery is visible but not instant
+    ALPHA = 0.55   # belief moves clearly each turn
+    BETA = 0.65    # trust reacts noticeably to skepticism
+    GAMMA = 0.28   # recovery is visible but not instant
 
     # ---- Strategy adaptation ----
     HARD_REJECTION_PENALTY = 0.6
