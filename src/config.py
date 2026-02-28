@@ -31,8 +31,8 @@ class Config:
     # This allows for recovery mode scenarios
 
     # ---- Learning rates (KEY CHANGE) ----
-    ALPHA = 0.45   # belief moves clearly each turn
-    BETA = 0.55    # trust reacts noticeably to skepticism
+    ALPHA = 0.35   # belief moves clearly each turn
+    BETA = 0.45    # trust reacts noticeably to skepticism
     GAMMA = 0.20   # recovery is visible but not instant
 
     # ---- Strategy adaptation ----
