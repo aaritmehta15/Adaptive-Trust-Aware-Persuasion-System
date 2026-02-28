@@ -32,8 +32,8 @@ class Config:
 
     # ---- Learning rates (KEY CHANGE) ----
     ALPHA = 0.35   # belief moves clearly each turn
-    BETA = 0.45    # trust reacts noticeably to skepticism
-    GAMMA = 0.20   # recovery is visible but not instant
+    BETA = 0.40    # trust reacts noticeably to skepticism
+    GAMMA = 0.15   # recovery is visible but not instant
 
     # ---- Strategy adaptation ----
     HARD_REJECTION_PENALTY = 0.6
